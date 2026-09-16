@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# .githooks/commit-msg — reject any commit message carrying AI attribution
+if grep -qiE "co-authored-by:\s*claude|generated (with|by) claude" "$1"; then
+  echo "Commit message contains AI attribution — remove it before committing." >&2
+  exit 1
+fi
