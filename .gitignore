@@ -1,0 +1,14 @@
+# Python (backend)
+backend/.venv/
+**/__pycache__/
+*.pyc
+backend/.env
+
+# Node (frontend)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Editors / OS
+.DS_Store
+.claude/settings.local.json
