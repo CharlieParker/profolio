@@ -1,14 +1,9 @@
 # syntax=docker/dockerfile:1
 
-# TODO: pin to a real digest once resolved (see README's "Containers" section):
-#   docker pull ghcr.io/astral-sh/uv:<version-matching-local `uv --version`>
-#   docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/astral-sh/uv:<version>
-FROM ghcr.io/astral-sh/uv:0.5 AS uv
+# pinned to match local `uv --version` (0.12.15)
+FROM ghcr.io/astral-sh/uv:0.12.15@sha256:62f8c047d0a0e9ece6b53fc63df902585a67a47a7f318ddec4a37db586edc8e3 AS uv
 
-# TODO: pin to a real digest once resolved:
-#   docker pull python:3.12-slim-bookworm
-#   docker inspect --format='{{index .RepoDigests 0}}' python:3.12-slim-bookworm
-FROM python:3.12-slim-bookworm AS builder
+FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS builder
 
 COPY --from=uv /uv /uvx /usr/local/bin/
 
@@ -28,8 +23,8 @@ COPY alembic/ ./alembic/
 COPY alembic.ini ./
 
 
-# same base as the builder, so glibc/library versions match exactly
-FROM python:3.12-slim-bookworm AS final
+# same base (and digest) as the builder, so glibc/library versions match exactly
+FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS final
 
 RUN groupadd --system app \
     && useradd --system --gid app --no-create-home --shell /usr/sbin/nologin app
