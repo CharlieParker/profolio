@@ -91,6 +91,41 @@ Pass 1 still needs.
 
 UI is then up at `http://localhost:5173`, reading from the backend above.
 
+## Containers
+
+Multi-stage `Dockerfile`s exist for both apps (`backend/Dockerfile`, `frontend/Dockerfile`)
+— non-root, pinned base images (tag + digest), small final images. Not wired into
+`docker-compose.yml` (that only runs dev Postgres) — proven standalone instead. The real
+integration point, backend and frontend actually talking to each other for the first time,
+is Rung 3 (Helm on k3s), not solved here.
+
+```sh
+docker build -t profolio-backend backend/
+docker build -t profolio-frontend frontend/
+
+docker compose -f backend/docker-compose.yml up -d
+docker run --rm -p 8000:8000 --env-file backend/.env profolio-backend
+docker run --rm -p 8080:8080 profolio-frontend
+```
+
+Frontend at `http://localhost:8080` calls the backend at the `VITE_API_URL` baked into
+the bundle at build time (`.env`'s default, `http://localhost:8000`) — both containers'
+ports are published to the host, so the browser reaches the backend directly without the
+two containers needing to see each other.
+
+**Before rebuilding the frontend image, run `pnpm build` locally first.** `pnpm dev`
+never catches type errors — Vite's dev server transpiles with esbuild, it doesn't invoke
+`tsc`. `pnpm build` runs `tsc -b && vite build`, which does. A frontend that only ever ran
+`pnpm dev` can carry a broken build (missing type-only devDependencies, etc.) that stays
+invisible until something actually runs the full build — Docker, CI, or a teammate's
+clean checkout. Treat `pnpm build` passing locally as the real gate, not `pnpm dev`
+working.
+
+**Bumping a base image:** resolve the new digest before editing the `FROM` line —
+`docker pull <image>:<tag>` then
+`` docker inspect --format='{{index .RepoDigests 0}}' <image>:<tag> `` — rather than
+hand-typing one.
+
 ## CI
 
 None yet, deliberately — this pass is about the app existing and running locally. Direct
