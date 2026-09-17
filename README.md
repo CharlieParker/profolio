@@ -104,9 +104,23 @@ docker build -t profolio-backend backend/
 docker build -t profolio-frontend frontend/
 
 docker compose -f backend/docker-compose.yml up -d
-docker run --rm -p 8000:8000 --env-file backend/.env profolio-backend
+docker run --rm -p 8000:8000 \
+  --add-host=host.docker.internal:host-gateway \
+  -e DATABASE_URL=postgresql+psycopg://profolio:profolio@host.docker.internal:5432/profolio \
+  profolio-backend
 docker run --rm -p 8080:8080 profolio-frontend
 ```
+
+**Why the backend command isn't just `--env-file backend/.env`:** `.env`'s `DATABASE_URL`
+points at `localhost`, which is correct for `uvicorn` running natively but wrong inside a
+container — there, `localhost` is the container itself, not your machine. Postgres is on
+the host (via `docker compose`, no Dockerfile of its own — see below), so the backend
+container needs `host.docker.internal` instead, plus `--add-host=host.docker.internal:host-gateway`
+to make that name resolve (Docker Desktop wires this up automatically; plain Docker
+Engine, e.g. on WSL2, doesn't unless asked). This is a standalone-verification wrinkle,
+not a real fix to carry forward: in Rung 3, Postgres runs inside the cluster and the
+backend reaches it through a Kubernetes Service DNS name, so this trick goes away rather
+than needing to be repeated.
 
 Frontend at `http://localhost:8080` calls the backend at the `VITE_API_URL` baked into
 the bundle at build time (`.env`'s default, `http://localhost:8000`) — both containers'
