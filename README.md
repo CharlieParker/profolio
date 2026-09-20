@@ -41,9 +41,10 @@ usual "inject env vars into the running container" pattern can't vary them per e
 A same-origin proxy sidesteps that — the only per-environment value left lives in nginx,
 which reads its env at container start.
 
-CORS in `backend/app/main.py` still uses an `allow_origin_regex` for `localhost`/`127.0.0.1`,
-but everything is same-origin now (nginx and Vite both proxy `/api`), so it's a candidate
-for removal.
+The backend has no CORS middleware: the browser only ever talks to the origin that served
+the page (nginx in the container, Vite natively), and both proxy `/api` to the backend, so
+no cross-origin request is made. If something on another origin ever needs the API, CORS
+comes back deliberately, scoped to that origin.
 
 ## Setup
 
