@@ -10,4 +10,10 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
+  // mirrors nginx's /api/ proxy so native `pnpm dev` behaves like the container
+  server: {
+    proxy: {
+      "/api": "http://localhost:8000",
+    },
+  },
 });

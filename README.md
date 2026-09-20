@@ -30,19 +30,20 @@ apps in different languages with nothing shared between them yet doesn't earn on
 
 ## Configuration
 
-`DATABASE_URL` (backend) and `VITE_API_URL` (frontend) are already read from `.env`, each
-with a `localhost` default — the standard pattern, and enough for one deployment target
-(this laptop). CORS in `backend/app/main.py` uses an `allow_origin_regex` matching any
-`localhost`/`127.0.0.1` port, covering every local dev surface (native Vite, containerized
-nginx) without hand-enumerating each one. Real per-environment config — an actual
-non-localhost origin — still doesn't exist, deliberately: that's a Rung 3 problem, once
-there's a real hostname to configure for.
+`DATABASE_URL` (backend) is read from `.env` with a `localhost` default. The frontend has no
+build-time config: it calls a relative `/api/...`, and nginx proxies that to the backend
+using `BACKEND_URL`, read from the container's env at start — so one image serves every
+environment (in Kubernetes, `BACKEND_URL` comes from a ConfigMap). Native `pnpm dev` gets
+the same `/api` proxy from `vite.config.ts`.
 
-**Gotcha for later, not solved now:** Vite bakes `VITE_*` values into the JS bundle at
-*build* time, not container start. The usual "inject env vars into the running container"
-pattern that works for the backend does nothing here — a per-environment image, or an
-entrypoint script writing a small `env.js` the app reads instead, will be needed once this
-is containerised (Rung 3).
+Why not `VITE_API_URL`: Vite bakes `VITE_*` values into the bundle at *build* time, so the
+usual "inject env vars into the running container" pattern can't vary them per environment.
+A same-origin proxy sidesteps that — the only per-environment value left lives in nginx,
+which reads its env at container start.
+
+CORS in `backend/app/main.py` still uses an `allow_origin_regex` for `localhost`/`127.0.0.1`,
+but everything is same-origin now (nginx and Vite both proxy `/api`), so it's a candidate
+for removal.
 
 ## Setup
 
@@ -70,14 +71,13 @@ uv run python seed.py           # loads synthetic seed data
 uv run uvicorn app.main:app --reload
 ```
 
-API is then up at `http://localhost:8000` — try `GET /accounts/1/holdings` and
-`GET /accounts/summary`.
+API is then up at `http://localhost:8000` — try `GET /api/accounts/1/holdings` and
+`GET /api/accounts/summary`.
 
 ### Frontend
 
 ```sh
 cd frontend
-cp .env.example .env
 corepack enable
 pnpm install
 pnpm dlx shadcn@latest init
@@ -147,10 +147,10 @@ docker run --rm -p 8000:8000 \
 - `--add-host=...:host-gateway` — makes that name resolve on plain Docker Engine (e.g.
   WSL2); Docker Desktop wires it up automatically
 
-Frontend `http://localhost:8080` calls the backend at whatever `VITE_API_URL` was baked
-into the bundle at build time (`.env`'s default, `http://localhost:8000`) — both
-containers publish their ports to the host, so the browser reaches the backend directly;
-the two containers don't need to see each other.
+Frontend `http://localhost:8080` calls a relative `/api/...`; its nginx proxies that to
+`BACKEND_URL` (default `http://backend:8000`, the Compose service name). Standalone, there
+is no `backend` to resolve, so nginx will refuse to start unless you put both containers on
+one network or override it (`-e BACKEND_URL=...`).
 
 ### Notes
 
