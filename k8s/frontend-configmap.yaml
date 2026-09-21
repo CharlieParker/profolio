@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: profolio-dev
+  labels:
+    app: frontend
+data:
+  # substituted into nginx's config at container start; no trailing path, so /api/...
+  # is forwarded to the backend unchanged
+  BACKEND_URL: http://backend:8000
