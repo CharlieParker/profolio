@@ -18,6 +18,8 @@ RUN pnpm build
 # dirs as a non-root user (uid 101, "nginx") — no USER/EXPOSE override needed
 FROM nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0 AS final
 
+LABEL org.opencontainers.image.source=https://github.com/CharlieParker/profolio
+
 COPY --from=builder /app/dist/ /usr/share/nginx/html/
 # the image's entrypoint renders /etc/nginx/templates/*.template into conf.d at start,
 # substituting env vars — so the backend address is set per environment, not at build
