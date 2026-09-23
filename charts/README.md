@@ -54,6 +54,12 @@ create commands). Keycloak needs two more, in its own `keycloak` namespace:
 
 ## Install order
 
+**Before any of this:** if `profolio-dev` already has Postgres/backend/frontend running from
+the raw-manifest pass, don't run `helm install` straight against it — Helm will reject
+objects it doesn't already own. Back up the namespace's Secrets, delete and recreate
+`profolio-dev`, restore the Secrets, then start at step 1 below. Exact commands and reasoning:
+`docs/journal.md`, 2026-09-23.
+
 ```sh
 # 0. one-time: fetch the keycloakx dependency chart
 helm repo add codecentric https://codecentric.github.io/helm-charts
@@ -118,8 +124,13 @@ Deployments and the Keycloak StatefulSet should be `Running`/`Ready`.
 
 ## Known gaps, deliberately left for later
 
-- **Postgres adoption — resolved by starting clean in a fresh namespace, since it holds
-  only synthetic seed data.**
+- **`profolio-dev` adoption question (Postgres, backend and frontend — not just
+  Postgres) — resolved 2026-09-23: back up the namespace's Secrets, delete `profolio-dev`
+  outright, recreate it, restore the Secrets, then `helm install` all three charts fresh.**
+  Rejected per-resource Helm-adopt (annotating every StatefulSet/Deployment/Service/PVC with
+  `meta.helm.sh/release-name`/`release-namespace` and the `app.kubernetes.io/managed-by: Helm`
+  label) as three times the moving parts for data that's entirely synthetic anyway — see
+  `docs/journal.md`, 2026-09-23, for the full reasoning and exact step order.
 - **Bitnami's keycloak chart was considered and rejected** — it stopped shipping patched
   free Keycloak images/charts as of 2025-08-28 (the free `bitnamilegacy` path is frozen).
   `codecentric/keycloakx` was used instead — note the `x`: `codecentric/helm-charts` also
