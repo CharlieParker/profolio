@@ -1,0 +1,8 @@
+# Overlay for the shared `keycloak` release: helm install -f values.yaml -f values-dev.yaml
+#
+# Placeholder, not a real split: only one Keycloak instance is installed regardless of
+# environment (see ../README.md's reasoning — nothing consumes it yet, and when OIDC
+# wiring lands, dev/stage is more idiomatically modelled as separate realms in this one
+# instance, not separate deployments). Kept for structural consistency with the other
+# charts' values-dev.yaml/values-stage.yaml convention, not because a real dev/stage
+# distinction exists here yet.

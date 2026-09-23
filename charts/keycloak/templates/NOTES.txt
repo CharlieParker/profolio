@@ -1,0 +1,10 @@
+Keycloak is up in {{ .Release.Namespace }} (infra-only — nothing in Profolio consumes it yet).
+
+Check it:
+  kubectl -n {{ .Release.Namespace }} get pods,svc
+
+Reach the admin console:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-keycloakx 8080:80
+
+Then open http://localhost:8080 and sign in with the bootstrap admin credentials from the
+keycloak-admin-credentials Secret.

@@ -1,0 +1,42 @@
+# Everything nests under `keycloakx:` — the dependency's name in Chart.yaml. Field names
+# below match codecentric/helm-charts' keycloakx chart (v7.3.2) exactly; verified against
+# its real values.yaml/templates/statefulset.yaml rather than assumed.
+keycloakx:
+  replicas: 1
+
+  http:
+    # The chart defaults to "/auth" for backwards compatibility with pre-17 Keycloak.
+    # This is a fresh install, so use the modern root path instead.
+    relativePath: "/"
+
+  # Reuses the existing postgres chart's StatefulSet/Service — not a second Postgres
+  # instance — but with its own logical database, created manually (see ../README.md).
+  # These fields map directly to Keycloak's own KC_DB* env vars.
+  database:
+    vendor: postgres                                    # -> KC_DB
+    hostname: postgres.profolio-dev.svc.cluster.local   # -> KC_DB_URL_HOST (cross-namespace, FQDN required)
+    port: 5432                                           # -> KC_DB_URL_PORT
+    database: keycloak                                   # -> KC_DB_URL_DATABASE
+    username: keycloak                                   # -> KC_DB_USERNAME
+    existingSecret: keycloak-db-credentials              # -> KC_DB_PASSWORD, from Secret
+    existingSecretKey: password
+
+  dbchecker:
+    # busybox initContainer that waits for the cross-namespace Postgres to be reachable
+    # before Keycloak itself starts — same "wait for the dependency" idea as the postgres
+    # chart's own pg_isready probes.
+    enabled: true
+
+  # Supplies KC_BOOTSTRAP_ADMIN_USERNAME / KC_BOOTSTRAP_ADMIN_PASSWORD (Keycloak 26.x's
+  # bootstrap-admin env vars) from an existing Secret — never a plaintext value here.
+  extraEnvFrom: |
+    - secretRef:
+        name: keycloak-admin-credentials
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi

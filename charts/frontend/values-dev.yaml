@@ -1,0 +1,4 @@
+# Overlay for the `profolio-dev` release: helm install -f values.yaml -f values-dev.yaml
+#
+# values.yaml holds the real defaults for this chart; this file only lists fields that
+# differ for dev. Empty for now — see charts/postgres/values-dev.yaml for the full reasoning.

@@ -1,0 +1,4 @@
+# Overlay for the `profolio-stage` release: helm install -f values.yaml -f values-stage.yaml
+#
+# See values-dev.yaml — identical situation, kept as a separate file rather than reusing
+# values-dev.yaml directly so stage has its own place to diverge into once it needs to.

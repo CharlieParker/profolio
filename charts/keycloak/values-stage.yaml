@@ -1,0 +1,4 @@
+# Overlay for the shared `keycloak` release: helm install -f values.yaml -f values-stage.yaml
+#
+# See values-dev.yaml — same placeholder situation. Only one Keycloak instance exists;
+# this file has nowhere real to diverge to until dev/stage need distinct realms or configs.

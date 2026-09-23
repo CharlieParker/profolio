@@ -1,0 +1,32 @@
+image:
+  repository: postgres
+  tag: 16-alpine
+  pullPolicy: IfNotPresent
+
+service:
+  port: 5432
+
+# Secret must already exist in the release namespace (created imperatively — see
+# ../README.md). Keys expected: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB.
+existingSecretName: postgres-credentials
+
+persistence:
+  size: 1Gi
+  # Empty string uses the cluster default StorageClass (k3s: local-path)
+  storageClassName: ""
+
+probes:
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

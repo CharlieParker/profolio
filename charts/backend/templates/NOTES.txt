@@ -1,0 +1,10 @@
+Backend is up in {{ .Release.Namespace }}.
+
+Migrations already ran (pre-install/pre-upgrade hook). Check the migrate Job:
+  kubectl -n {{ .Release.Namespace }} get job {{ include "backend.fullname" . }}-migrate
+  kubectl -n {{ .Release.Namespace }} logs job/{{ include "backend.fullname" . }}-migrate
+
+Check the Deployment:
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "backend.fullname" . }}
+
+Reachable in-cluster at {{ include "backend.fullname" . }}:{{ .Values.service.port }}.

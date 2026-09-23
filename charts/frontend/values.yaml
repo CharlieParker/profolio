@@ -1,0 +1,37 @@
+image:
+  repository: ghcr.io/charlieparker/profolio-frontend
+  tag: latest
+  pullPolicy: Always
+
+# Private GHCR package: pulled with this Secret, named explicitly here rather than
+# attached to the namespace's default ServiceAccount.
+imagePullSecrets:
+  - name: ghcr-pull
+
+replicaCount: 1
+
+service:
+  port: 80
+  targetPort: 8080
+
+# Substituted into nginx's config at container start via envsubst templating; no trailing
+# path, so /api/... is forwarded to the backend unchanged. Relies on the backend chart
+# being installed under release name "backend" in the same namespace (see ../README.md).
+config:
+  backendUrl: http://backend:8000
+
+probes:
+  path: /
+  readiness:
+    periodSeconds: 5
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi

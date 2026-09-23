@@ -1,0 +1,6 @@
+# Overlay for the `profolio-dev` release: helm install -f values.yaml -f values-dev.yaml
+#
+# values.yaml holds the real defaults for this chart; this file only lists fields that
+# differ for dev. Empty for now — dev and stage don't diverge yet at this point in Rung 3
+# (no `prod` values file either — see profolio/CLAUDE.md's Rung 3 note). The layering is
+# wired and ready for when a real difference (replica count, resource sizing, etc) appears.

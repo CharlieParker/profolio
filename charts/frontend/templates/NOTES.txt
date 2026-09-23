@@ -1,0 +1,7 @@
+Frontend is up in {{ .Release.Namespace }}.
+
+Check it:
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "frontend.fullname" . }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "frontend.fullname" . }} 8080:{{ .Values.service.port }}
+
+Then open http://localhost:8080 — holdings should render through the same-origin /api proxy.

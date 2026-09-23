@@ -1,0 +1,49 @@
+image:
+  repository: ghcr.io/charlieparker/profolio-backend
+  tag: latest
+  # :latest is mutable, so always check for a newer image
+  pullPolicy: Always
+
+# Private GHCR package: pulled with this Secret, named explicitly here rather than
+# attached to the namespace's default ServiceAccount.
+imagePullSecrets:
+  - name: ghcr-pull
+
+replicaCount: 1
+
+service:
+  port: 8000
+
+# Secret must already exist in the release namespace (created imperatively — see
+# ../README.md). DATABASE_URL is shared with the postgres chart's Secret.
+existingSecretName: postgres-credentials
+databaseUrlSecretKey: DATABASE_URL
+
+probes:
+  path: /health
+  readiness:
+    periodSeconds: 5
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+migrate:
+  enabled: true
+  command: ["alembic", "upgrade", "head"]
+  # retries cover Postgres still starting up
+  backoffLimit: 6
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

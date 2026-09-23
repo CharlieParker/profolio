@@ -1,0 +1,46 @@
+{{- if .Values.migrate.enabled }}
+# Runs {{ join " " .Values.migrate.command | quote }} from the backend image, as a Helm hook.
+#
+# pre-install,pre-upgrade: this Job runs to completion BEFORE Helm creates or updates the
+# Deployment below — on install, before it exists at all; on upgrade, before it's touched —
+# so backend Pods never start against an unmigrated schema. (post-install/post-upgrade would
+# fire after the Deployment is created, racing backend Pods starting up against migrations
+# still in flight — deliberately not used here.)
+#
+# hook-delete-policy before-hook-creation: deletes the previous run's Job right before
+# creating this one, since a Job's spec is immutable — replacing the manual
+# `kubectl delete job && kubectl apply` dance the raw-manifest k8s/README.md documents by
+# hand. alembic upgrade head is idempotent, so rerunning on an up-to-date database is a no-op.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "backend.fullname" . }}-migrate
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: {{ .Values.migrate.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "backend.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: {{ toYaml .Values.migrate.command | nindent 12 }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecretName }}
+                  key: {{ .Values.databaseUrlSecretKey }}
+          resources:
+            {{- toYaml .Values.migrate.resources | nindent 12 }}
+{{- end }}
