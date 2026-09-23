@@ -2,6 +2,12 @@
 # below match codecentric/helm-charts' keycloakx chart (v7.3.2) exactly; verified against
 # its real values.yaml/templates/statefulset.yaml rather than assumed.
 keycloakx:
+  command:
+    - "/opt/keycloak/bin/kc.sh"
+    - "start"
+    - "--http-port=8080"
+    - "--hostname-strict=false" # Lab shortcut!
+
   replicas: 1
 
   http:
