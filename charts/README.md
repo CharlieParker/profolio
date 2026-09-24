@@ -35,6 +35,12 @@ backend's `DATABASE_URL` (host `postgres`) and the frontend's `BACKEND_URL`
 (`http://backend:8000`) needed no changes: they still resolve correctly. Installing under a
 different release name would silently break both.
 
+**Exception — `keycloak`.** The wrapper's dependency is named `keycloakx`, and the release
+name `keycloak` doesn't *contain* `keycloakx`, so the collapse doesn't happen: resources are
+named `keycloak-keycloakx-*` (pod `keycloak-keycloakx-0`, admin Service
+`keycloak-keycloakx-http`). Harmless, since nothing references them by name, but don't expect
+`keycloak-0`.
+
 Swap `-f charts/*/values-dev.yaml` for `-f charts/*/values-stage.yaml` and `-n
 profolio-dev` for `-n profolio-stage` to target stage. Both overlay files are currently
 empty placeholders (see each chart's `values-dev.yaml` comment) — stage doesn't diverge
@@ -91,10 +97,10 @@ kubectl create namespace keycloak
 # One-time: create Keycloak's own Postgres role and database on the EXISTING postgres
 # instance — a separate logical database, not a second Postgres, and not the app's own
 # superuser role (keeps the isolation real, not just a naming convention).
-kubectl -n profolio-dev exec -it postgres-0 -- \
+kubectl -n profolio-dev exec postgres-0 -- \
   psql -U <POSTGRES_USER> -d <POSTGRES_DB> -c \
   "CREATE ROLE keycloak WITH LOGIN PASSWORD '<KEYCLOAK_DB_PASSWORD>';"
-kubectl -n profolio-dev exec -it postgres-0 -- \
+kubectl -n profolio-dev exec postgres-0 -- \
   psql -U <POSTGRES_USER> -d <POSTGRES_DB> -c \
   "CREATE DATABASE keycloak OWNER keycloak;"
 
