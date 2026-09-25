@@ -61,7 +61,9 @@ spec:
   # and kept when the pod or StatefulSet is deleted; storage class is the cluster default
   # (k3s local-path) unless persistence.storageClassName is set
   volumeClaimTemplates:
-    - metadata:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
         name: data
       spec:
         accessModes: ["ReadWriteOnce"]
