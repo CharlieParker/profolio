@@ -18,6 +18,22 @@ pass) does the composing across them instead.
 | `frontend/` | frontend Deployment + ClusterIP Service + `BACKEND_URL` ConfigMap |
 | `keycloak/` | Keycloak (codecentric's `keycloakx` chart), reusing the postgres chart's Postgres instance with its own logical database |
 
+## Argo CD deploys these charts — Helm is for bootstrap and DR only
+
+Since 2026-09-25 Argo CD owns all four releases through the app-of-apps in `../argocd/`. Argo
+renders these charts with its own bundled Helm and applies the result itself; there are no
+Helm releases any more (`helm list -A` shows only `argocd` and Traefik).
+
+- **To deploy a change, merge it to `main`.** Argo polls git (~3 min) and syncs automatically,
+  with prune and self-heal on.
+- **`helm install`** (the commands below) is kept for **bootstrap and disaster recovery
+  only** — rebuilding a cluster from nothing, before Argo exists to adopt the workloads.
+- **Never `helm upgrade` or `helm uninstall`** in `profolio-dev`/`profolio-stage`/`keycloak`.
+  There is no Helm release left to act on, and anything that does succeed puts a second
+  owner on objects Argo's self-heal will immediately revert.
+- **Changing things by hand** (`kubectl edit`, `kubectl scale`) is reverted by self-heal too.
+  Change git instead.
+
 ## The naming convention is load-bearing
 
 Install each chart with a **release name equal to the chart name**:
@@ -58,7 +74,7 @@ create commands). Keycloak needs two more, in its own `keycloak` namespace:
 | `keycloak-db-credentials` | `keycloak` | `password` | Keycloak's Postgres role password |
 | `keycloak-admin-credentials` | `keycloak` | `KC_BOOTSTRAP_ADMIN_USERNAME`, `KC_BOOTSTRAP_ADMIN_PASSWORD` | Keycloak's bootstrap admin login |
 
-## Install order
+## Install order (bootstrap / DR only)
 
 **Before any of this:** if `profolio-dev` already has Postgres/backend/frontend running from
 the raw-manifest pass, don't run `helm install` straight against it — Helm will reject
@@ -84,9 +100,12 @@ helm install frontend charts/frontend -n profolio-dev \
   -f charts/frontend/values.yaml -f charts/frontend/values-dev.yaml
 ```
 
-Rerunning migrations is now just `helm upgrade backend charts/backend -n profolio-dev -f ...`
-— the hook's `before-hook-creation` delete policy handles the immutable-Job problem
-automatically.
+**Migrations under Argo:** Argo maps the chart's `pre-install,pre-upgrade` Helm hook to its
+own `PreSync` hook, so `alembic upgrade head` runs automatically before every sync of
+`profolio-dev-backend` — including the one a new image tag triggers. To rerun it without a
+git change, trigger a sync (`argocd app sync profolio-dev-backend`, or Sync in the UI) —
+**not** `helm upgrade`. The hook's `before-hook-creation` delete policy still handles the
+immutable-Job problem.
 
 Keycloak is independent of the sequence above (own namespace, nothing in the app depends
 on it yet), but its database step depends on `postgres` already being up:
