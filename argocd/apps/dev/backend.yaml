@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: profolio-dev-backend
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:CharlieParker/profolio.git
+    targetRevision: main
+    path: charts/backend
+    helm:
+      releaseName: backend
+      valueFiles:
+        - values.yaml
+        - values-dev.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: profolio-dev
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true
