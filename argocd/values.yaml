@@ -1,0 +1,6 @@
+# Overrides for the argo/argo-cd chart, pinned at 10.9.2 (Argo CD v3.5.3).
+# Everything not listed here is the chart default.
+dex:
+  enabled: false        # no SSO yet; Argo can use Keycloak via OIDC directly later
+notifications:
+  enabled: false        # no Slack/email alerting in the lab
