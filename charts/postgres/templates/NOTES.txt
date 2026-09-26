@@ -5,4 +5,5 @@ Check it:
   kubectl -n {{ .Release.Namespace }} get pvc
 
 Reachable in-cluster at {{ include "postgres.fullname" . }}:{{ .Values.service.port }}
-(same-namespace clients only — see charts/README.md for the cross-namespace FQDN).
+from the same namespace, or at
+{{ include "postgres.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }} from another.

@@ -6,7 +6,7 @@ keycloakx:
     - "/opt/keycloak/bin/kc.sh"
     - "start"
     - "--http-port=8080"
-    - "--hostname-strict=false" # Lab shortcut!
+    - "--hostname-strict=false" # dev only: accept any hostname, since there is no fixed public one yet
 
   replicas: 1
 

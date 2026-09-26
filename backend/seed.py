@@ -8,12 +8,12 @@ from app.database import SessionLocal
 from app.models import Account, Holding
 
 SEED_ACCOUNTS: dict[str, list[tuple[str, str, float, float]]] = {
-    "Invest": [
+    "General": [
         ("Northwind Global Equity ETF", "GB00FAKE0001", 120, 105.40),
         ("Aldergate Technology Fund", "GB00FAKE0002", 45, 512.10),
         ("Fictional Renewables Trust plc", "GB00FAKE0003", 300, 2.15),
     ],
-    "Stocks ISA": [
+    "ISA": [
         ("Harborlight Equity Income Fund", "GB00FAKE0004", 80, 6.75),
         ("Fictional Robotics Group plc", "GB00FAKE0005", 60, 14.30),
         ("Meridian World Index Fund", "GB00FAKE0006", 25, 88.60),

@@ -2,14 +2,15 @@
 
 ## What this directory is
 
-A deliberate, **transitional** raw-manifest pass. The point is to write a
-`volumeClaimTemplates` StatefulSet, a headless Service and per-Deployment
-`imagePullSecrets` by hand once, so the abstractions Helm generates later aren't opaque.
-It is not a long-term deployment mechanism: the Helm chart under `/charts` (next pass)
-supersedes applying from here directly, though these files may seed its templates.
+The original raw manifests for the app, written by hand (a `volumeClaimTemplates`
+StatefulSet, a headless Service, per-Deployment `imagePullSecrets`) before the Helm charts
+existed. **Superseded by [`../charts/`](../charts/README.md)**, which Argo CD deploys. Kept as
+a plain-YAML reference for what the charts render — don't apply these to a namespace Argo CD
+manages, since self-heal will fight them.
 
-Every manifest sets `namespace: profolio-dev` explicitly. The namespace itself is already
-provisioned and is not created here. Target cluster context: `beelink`.
+Every manifest sets `namespace: profolio-dev` explicitly but doesn't create it — run
+`kubectl create namespace profolio-dev` first. Commands below use your current kubectl
+context; add `--context <name>` if you need a different one.
 
 | File | Contents |
 | --- | --- |
@@ -29,10 +30,10 @@ in the namespace. Between them, these are every Secret `profolio-dev` needs.
 | `ghcr-pull` | `kubernetes.io/dockerconfigjson` | `.dockerconfigjson` | pulling the private GHCR backend/frontend images (the migrate Job reuses the backend image) |
 | `postgres-credentials` | `Opaque` | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL` | Postgres init, and app-to-DB auth |
 
-`ghcr-pull` (already exists; command to recreate it). The PAT needs only `read:packages`:
+`ghcr-pull`. The PAT needs only `read:packages`:
 
 ```sh
-kubectl --context beelink -n profolio-dev create secret docker-registry ghcr-pull \
+kubectl -n profolio-dev create secret docker-registry ghcr-pull \
   --docker-server=ghcr.io \
   --docker-username=<GITHUB_USERNAME> \
   --docker-password=<READ_PACKAGES_PAT>
@@ -43,7 +44,7 @@ kubectl --context beelink -n profolio-dev create secret docker-registry ghcr-pul
 `POSTGRES_PASSWORD`). The host is the headless Service name `postgres`:
 
 ```sh
-kubectl --context beelink -n profolio-dev create secret generic postgres-credentials \
+kubectl -n profolio-dev create secret generic postgres-credentials \
   --from-literal=POSTGRES_USER=<USER> \
   --from-literal=POSTGRES_PASSWORD=<PASSWORD> \
   --from-literal=POSTGRES_DB=<DB> \
@@ -57,15 +58,15 @@ Secret later does not change the password of an existing database.
 
 ```sh
 # 1. secrets (above), then the database
-kubectl --context beelink apply -f k8s/postgres-statefulset.yaml
-kubectl --context beelink -n profolio-dev rollout status sts/postgres
+kubectl apply -f k8s/postgres-statefulset.yaml
+kubectl -n profolio-dev rollout status sts/postgres
 
 # 2. schema
-kubectl --context beelink apply -f k8s/backend-migrate-job.yaml
-kubectl --context beelink -n profolio-dev logs job/backend-migrate
+kubectl apply -f k8s/backend-migrate-job.yaml
+kubectl -n profolio-dev logs job/backend-migrate
 
 # 3. app
-kubectl --context beelink apply -f k8s/backend-deployment.yaml \
+kubectl apply -f k8s/backend-deployment.yaml \
   -f k8s/frontend-configmap.yaml -f k8s/frontend-deployment.yaml
 ```
 
@@ -83,8 +84,8 @@ deploy path. Synthetic data only.
 ## Checking it worked
 
 ```sh
-kubectl --context beelink -n profolio-dev get pods,pvc,svc
-kubectl --context beelink -n profolio-dev port-forward svc/frontend 8080:80
+kubectl -n profolio-dev get pods,pvc,svc
+kubectl -n profolio-dev port-forward svc/frontend 8080:80
 ```
 
 `data-postgres-0` should be `Bound`, and `describe pod` on backend/frontend should show

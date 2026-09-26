@@ -3,4 +3,4 @@
 dex:
   enabled: false        # no SSO yet; Argo can use Keycloak via OIDC directly later
 notifications:
-  enabled: false        # no Slack/email alerting in the lab
+  enabled: false        # no Slack/email alerting configured

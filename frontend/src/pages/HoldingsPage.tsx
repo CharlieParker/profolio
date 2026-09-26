@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { getAccountHoldings, type Holding } from "@/api/holdings";
 
-// Pass 1 renders one seeded account's holdings — no account switcher yet.
+// Renders one seeded account's holdings — no account switcher yet.
 const SEEDED_ACCOUNT_ID = 1;
 
 const currency = new Intl.NumberFormat("en-GB", {

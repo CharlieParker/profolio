@@ -2,14 +2,11 @@
 
 ## What this directory is
 
-The Helm pass that supersedes applying `../k8s/*.yaml` directly, per that directory's own
-README. **`k8s/` is not deleted** — it stays as the applied, working reference; these
-charts are a parallel, install-ready artifact. Adopting the *already-running* `postgres`
-StatefulSet and its `data-postgres-0` PVC under Helm management, without data loss, is a
-separate later step — see the postgres chart's own note below.
+The Helm charts that deploy Profolio. They supersede the raw manifests in `../k8s/`, which
+are kept only as a plain-YAML reference.
 
-Four **separate small charts**, not one umbrella chart — Argo CD's app-of-apps (a later
-pass) does the composing across them instead.
+Four **separate small charts**, not one umbrella chart — Argo CD's app-of-apps in
+`../argocd/` does the composing across them instead.
 
 | Chart | Contents |
 | --- | --- |
@@ -20,9 +17,9 @@ pass) does the composing across them instead.
 
 ## Argo CD deploys these charts — Helm is for bootstrap and DR only
 
-Since 2026-09-25 Argo CD owns all four releases through the app-of-apps in `../argocd/`. Argo
-renders these charts with its own bundled Helm and applies the result itself; there are no
-Helm releases any more (`helm list -A` shows only `argocd` and Traefik).
+Argo CD owns all four releases through the app-of-apps in `../argocd/`. Argo renders these
+charts with its own bundled Helm and applies the result itself, so there are no Helm
+releases for them (`helm list -A` won't show them).
 
 - **To deploy a change, merge it to `main`.** Argo polls git (~3 min) and syncs automatically,
   with prune and self-heal on.
@@ -60,14 +57,14 @@ named `keycloak-keycloakx-*` (pod `keycloak-keycloakx-0`, admin Service
 Swap `-f charts/*/values-dev.yaml` for `-f charts/*/values-stage.yaml` and `-n
 profolio-dev` for `-n profolio-stage` to target stage. Both overlay files are currently
 empty placeholders (see each chart's `values-dev.yaml` comment) — stage doesn't diverge
-from dev yet, per Rung 3's scope.
+from dev yet, and `profolio-stage` isn't in use.
 
 ## Secrets
 
-Same rule as `../k8s/README.md`: nothing is committed, no value ever goes in git, every
-Secret is created imperatively. `ghcr-pull` and `postgres-credentials` already exist in
-`profolio-dev` from the raw-manifest pass and are reused as-is (see that README for their
-create commands). Keycloak needs two more, in its own `keycloak` namespace:
+Nothing is committed, no value ever goes in git, every Secret is created imperatively. The
+app namespace needs `ghcr-pull` and `postgres-credentials` — the same Secrets the raw
+manifests use; create them with the commands in `../k8s/README.md`. Keycloak needs two more,
+in its own `keycloak` namespace:
 
 | Secret | Namespace | Keys | Used for |
 | --- | --- | --- | --- |
@@ -76,11 +73,11 @@ create commands). Keycloak needs two more, in its own `keycloak` namespace:
 
 ## Install order (bootstrap / DR only)
 
-**Before any of this:** if `profolio-dev` already has Postgres/backend/frontend running from
-the raw-manifest pass, don't run `helm install` straight against it — Helm will reject
-objects it doesn't already own. Back up the namespace's Secrets, delete and recreate
-`profolio-dev`, restore the Secrets, then start at step 1 below. Exact commands and reasoning:
-`docs/journal.md`, 2026-09-23.
+**Before any of this:** `helm install` refuses to take over objects it didn't create. If the
+namespace already has Postgres/backend/frontend objects (e.g. from applying `../k8s/`
+directly), back up its Secrets, delete and recreate the namespace, restore the Secrets, then
+start at step 1. With synthetic data, that's simpler than annotating every existing object
+for Helm to adopt.
 
 ```sh
 # 0. one-time: fetch the keycloakx dependency chart
@@ -92,8 +89,7 @@ helm install postgres charts/postgres -n profolio-dev --create-namespace \
   -f charts/postgres/values.yaml -f charts/postgres/values-dev.yaml
 kubectl -n profolio-dev rollout status sts/postgres
 
-# 2. app (backend's pre-install hook runs `alembic upgrade head` automatically — no more
-#    manual `kubectl delete job && kubectl apply` dance)
+# 2. app (backend's pre-install hook runs `alembic upgrade head` automatically)
 helm install backend charts/backend -n profolio-dev \
   -f charts/backend/values.yaml -f charts/backend/values-dev.yaml
 helm install frontend charts/frontend -n profolio-dev \
@@ -147,15 +143,8 @@ kubectl -n keycloak get pods,svc
 The migrate Job should show `Completed`; `data-postgres-0` should be `Bound`; both
 Deployments and the Keycloak StatefulSet should be `Running`/`Ready`.
 
-## Known gaps, deliberately left for later
+## Notes
 
-- **`profolio-dev` adoption question (Postgres, backend and frontend — not just
-  Postgres) — resolved 2026-09-23: back up the namespace's Secrets, delete `profolio-dev`
-  outright, recreate it, restore the Secrets, then `helm install` all three charts fresh.**
-  Rejected per-resource Helm-adopt (annotating every StatefulSet/Deployment/Service/PVC with
-  `meta.helm.sh/release-name`/`release-namespace` and the `app.kubernetes.io/managed-by: Helm`
-  label) as three times the moving parts for data that's entirely synthetic anyway — see
-  `docs/journal.md`, 2026-09-23, for the full reasoning and exact step order.
 - **Bitnami's keycloak chart was considered and rejected** — it stopped shipping patched
   free Keycloak images/charts as of 2025-08-28 (the free `bitnamilegacy` path is frozen).
   `codecentric/keycloakx` was used instead — note the `x`: `codecentric/helm-charts` also

@@ -2,8 +2,8 @@ apiVersion: v2
 name: keycloak
 description: >-
   Profolio infra — Keycloak (IAM) via codecentric/keycloakx, pointed at the existing
-  Postgres instance with its own logical database. Infra-only in this pass: nothing in
-  the app consumes it yet, OIDC integration is a separate, later pass.
+  Postgres instance with its own logical database. Infra-only for now: nothing in the
+  app consumes it yet; OIDC integration comes later.
 type: application
 version: 0.1.0
 appVersion: "26.7.4"

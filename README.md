@@ -11,11 +11,13 @@ Monorepo, flat at the repo root:
 ```
 backend/     FastAPI + SQLAlchemy + Alembic — the API
 frontend/    React + TypeScript (Vite) — the UI
+charts/      Helm charts: postgres, backend, frontend, keycloak (see charts/README.md)
+argocd/      Argo CD Applications (app-of-apps) that deploy the charts
+k8s/         The original raw Kubernetes manifests, kept as a reference; superseded by charts/
 ```
 
 No shared root-level JS/Python workspace tooling (no Nx/Turborepo/pnpm workspaces) — two
-apps in different languages with nothing shared between them yet doesn't earn one. `/charts`
-(Helm) and `/terraform` land later as siblings, once the rungs that need them arrive.
+apps in different languages with nothing shared between them yet doesn't earn one.
 
 ## Toolchain
 
@@ -25,7 +27,7 @@ apps in different languages with nothing shared between them yet doesn't earn on
 | Frontend | pnpm (via corepack) | Faster and stricter than npm; corepack ships with modern Node, no extra global install |
 | Frontend build | Vite + React + TypeScript | The modern default (CRA is deprecated); what shadcn/ui's setup assumes |
 | Frontend CSS | Tailwind v4 (`@tailwindcss/vite`) | CSS-first config (`@theme` in `src/index.css`, no `tailwind.config.ts`) — what shadcn's CLI v4 sets up by default |
-| Frontend UI | [shadcn/ui](https://ui.shadcn.com/) + [TanStack Table](https://tanstack.com/table) | Generic, React-transparent components, chosen over `@royalnavy/react-component-library` — its Storybook leans on GOV.UK-pattern institutional chrome, the wrong look for a personal app |
+| Frontend UI | [shadcn/ui](https://ui.shadcn.com/) + [TanStack Table](https://tanstack.com/table) | Generic, React-transparent components, copied into the repo rather than installed as a dependency, so they're easy to read and change |
 | Local stack | Docker Compose | Postgres + backend + frontend, one command up/down — dev convenience, not Kubernetes |
 
 ## Configuration
@@ -81,17 +83,11 @@ API is then up at `http://localhost:8000` — try `GET /api/accounts/1/holdings`
 cd frontend
 corepack enable
 pnpm install
-pnpm dlx shadcn@latest init
-pnpm dlx shadcn@latest add table
 pnpm dev
 ```
 
-`shadcn init` writes `components.json` and the real Tailwind v4 theme into `src/index.css`
-(accept the prompt to overwrite it — the checked-in version is just a bare `@import`).
-`shadcn add table` regenerates `src/components/ui/table.tsx` from the actual registry rather
-than the hand-copied version this pass started with (accept that overwrite too). Once
-`components.json` exists, `pnpm dlx shadcn@latest add <component>` works cleanly for whatever
-Pass 1 still needs.
+shadcn/ui's `components.json` is committed, so new components are added with
+`pnpm dlx shadcn@latest add <component>`; they land in `src/components/ui/`.
 
 UI is then up at `http://localhost:5173`, reading from the backend above.
 
@@ -155,13 +151,9 @@ one network or override it (`-e BACKEND_URL=...`).
 
 ### Notes
 
-- **Compose wiring was a later addition, not the original plan.** Rung 2 initially kept
-  Compose out entirely, to save "make services talk to each other" for Rung 3's Helm/k3s
-  work. Manually smoke-testing each image standalone (the host-networking override above,
-  a CORS-per-port mismatch) surfaced real friction and had already taught the underlying
-  lesson — a container's `localhost` isn't the host — before Compose entered the picture.
-  Compose's bridge network and service-name DNS are different enough from Kubernetes
-  Services/Ingress that having one doesn't dry-run the other.
+- **Compose is a local-dev convenience, not a rehearsal of the cluster.** Its bridge network
+  and service-name DNS are different enough from Kubernetes Services that a working Compose
+  stack says little about the Kubernetes deployment — see [Deployment](#deployment).
 - **Before rebuilding the frontend image, run `pnpm build` locally first.** `pnpm dev`
   never type-checks (Vite's dev server uses esbuild, not `tsc`) — `pnpm build` runs
   `tsc -b && vite build`, which does. Treat that as the real gate.
@@ -169,8 +161,17 @@ one network or override it (`-e BACKEND_URL=...`).
   `docker pull <image>:<tag>` then
   `` docker inspect --format='{{index .RepoDigests 0}}' <image>:<tag> ``.
 
+## Deployment
+
+The app runs on a single-node k3s cluster, in the `profolio-dev` namespace (with a shared
+`keycloak` namespace). Argo CD deploys the Helm charts in `charts/` through the app-of-apps
+in `argocd/`, syncing automatically from `main` — so deploying a change means merging it.
+Images are private GHCR packages. Secrets are created imperatively and never committed.
+Details, including bootstrap and disaster-recovery steps: [`charts/README.md`](charts/README.md).
+
 ## CI
 
-None yet, deliberately — this pass is about the app existing and running locally. Direct
-commits to `main` are fine until CI exists; once it does, this switches to branch → PR → CI
-→ merge, the same flow as the private `beelink-platform` repo.
+In progress. The target flow: a pull request runs CI (per-component path filtering, one
+required status check); merging to `main` builds and pushes SHA-tagged images to GHCR and
+bumps the tag in `charts/*/values-dev.yaml`; Argo CD then syncs the new tag. Once CI is in
+place, every change goes branch → PR → CI → squash merge, with `main` protected.

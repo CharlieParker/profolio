@@ -5,19 +5,17 @@ practice: containerised, deployed to a single-node k3s cluster with Helm, manage
 (GitOps), and — next — built and shipped by a GitHub Actions pipeline. The app is
 deliberately modest; the platform around it is the point.
 
-**This repo is public.** Personal context and the wider practice plan live in a private
-`CLAUDE.md` in the parent directory, which Claude Code loads automatically. Keep this file to
-what anyone working on the repo would need. Never add personal details about the author —
-employer, role, background — here or anywhere else in the repo: code, docs, commit messages
-or PR text.
+**This repo is public.** Keep this file, and everything else committed, to what anyone
+working on the code would need. Never add personal details about the author — employer,
+role, background — anywhere in the repo: code, docs, commit messages or PR text.
 
 ## Working agreement
 
 - **Propose before doing.** Use plan mode for anything nontrivial — a schema change, a new
   endpoint shape, a new workflow — before writing files.
-- **AI-generated code is fine. AI-run commands are not, by default.** Propose the command and
-  a short explanation; Charlie runs it himself and pastes back results. This is deliberate —
-  it's how he's building CLI fluency — and holds even when the code itself came from you.
+- **AI-generated code is fine. AI-run commands are not, by default.** Propose the command with
+  a short explanation; the maintainer runs it and pastes back the results. This holds even
+  when the code itself came from you.
 - **No attribution.** Never add `Co-Authored-By: Claude` or similar trailers to commits or PR
   descriptions. Enforced two ways: `.claude/settings.json`'s `attribution` block (stops it
   being written) and the `commit-msg` hook in `.githooks/` (catches it if it slips through).
@@ -40,7 +38,7 @@ Compose credentials are local-dev defaults only — no other environment may reu
 ## Domain — portfolio analyser
 
 Parses the user's own brokerage holdings (instrument, ISIN, quantity, price, per account —
-e.g. "Invest" and "Stocks ISA") and does portfolio analysis on them: current holdings,
+e.g. a general investment account and an ISA) and does portfolio analysis on them: current holdings,
 pricing history, eventually a portfolio-weighted newsfeed.
 
 **Hard rule: no real financial data in this repo, ever.** Not in seed data, not in test
