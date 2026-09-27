@@ -20,6 +20,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      charts: ${{ steps.filter.outputs.charts }}
     steps:
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
@@ -30,6 +31,11 @@ jobs:
               - '.github/workflows/ci.yml'
             frontend:
               - 'frontend/**'
+              - '.github/workflows/ci.yml'
+            charts:
+              - 'charts/**'
+              - 'argocd/apps/**' # an Application's value files change what gets rendered
+              - '.github/scripts/validate-charts.sh'
               - '.github/workflows/ci.yml'
 
   backend:
@@ -75,8 +81,42 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+  charts:
+    needs: changes
+    if: needs.changes.outputs.charts == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash # explicit shell adds -o pipefail; the implicit default is only bash -e
+    env:
+      HELM_VERSION: "4.2.1" # = Argo CD v3.5.3's bundled Helm (hack/tool-versions.sh); bump with Argo
+      HELM_SHA256: 479dca836e5b45e8bd222400c5591b0e3a647378f03ff96597180db97c17fdae
+      KUBECONFORM_VERSION: "0.8.0"
+      KUBECONFORM_SHA256: 9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883
+      KUBE_VERSION: "1.36.4" # k3s on the lab node
+      SCHEMA_REF: a6f9a32d2ccb64b6e4f5b41419b9c2e8ee0cce18 # yannh/kubernetes-json-schema
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Helm and kubeconform (checksum-verified)
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSLo helm.tgz "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+          echo "${HELM_SHA256}  helm.tgz" | sha256sum -c -
+          tar -xzf helm.tgz --strip-components=1 linux-amd64/helm
+          curl -fsSLo kubeconform.tgz "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "${KUBECONFORM_SHA256}  kubeconform.tgz" | sha256sum -c -
+          tar -xzf kubeconform.tgz kubeconform
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      # yq is the runner image's pre-installed copy, deliberately unpinned - see the
+      # header of validate-charts.sh. Its version is logged here for when that bites.
+      - run: helm version && kubeconform -v && yq --version
+      - run: .github/scripts/validate-charts.sh
+
   ci-ok:
-    needs: [changes, backend, frontend]
+    needs: [changes, backend, frontend, charts]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2
