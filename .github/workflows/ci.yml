@@ -43,7 +43,8 @@ jobs:
             argocd:
               - 'argocd/**'
               - '.yamllint.yaml'
-              - '.github/ci/**'
+              - '.github/ci/versions.env'
+              - '.github/ci/requirements.txt'
               - '.github/scripts/validate-argocd.sh'
               - '.github/scripts/load-versions.sh'
               - '.github/workflows/ci.yml'

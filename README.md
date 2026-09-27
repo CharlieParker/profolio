@@ -185,11 +185,16 @@ on a branch that is up to date with `main`.
 | `changes` | always | which components the PR touches (`dorny/paths-filter`) |
 | `backend` | `backend/**` changes | `uv sync --locked`, ruff lint + format check, pytest |
 | `frontend` | `frontend/**` changes | `pnpm install --frozen-lockfile`, `tsc` + Vite build |
+| `charts` | `charts/**` or `argocd/apps/**` changes | `helm lint` + `helm template` with Argo CD's Helm, `kubeconform` |
+| `argocd` | `argocd/**` changes | `yamllint`, `kubeconform` against Argo CD's Application CRD |
 | `ci-ok` | always | fails if any job above failed or was cancelled; skipped jobs pass |
 
 `ci-ok` is the only required check, so adding a job means adding it to `ci-ok`'s `needs:`,
 with no ruleset change. Actions are pinned to full commit SHAs. The ruleset JSON is applied
 with `gh api --method PUT repos/<owner>/profolio/rulesets/<id> --input <file>`.
+
+How the pieces fit, where every version pin lives, and how to run the checks locally:
+[`.github/ci/README.md`](.github/ci/README.md).
 
 Still to come: on merge to `main`, build SHA-tagged images and bump the tag in
 `charts/*/values-dev.yaml` for Argo CD to sync.
