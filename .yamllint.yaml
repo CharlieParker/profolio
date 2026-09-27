@@ -1,0 +1,13 @@
+# yamllint config for the hand-written YAML in argocd/ (run by ci.yml's argocd job).
+# Helm templates are Go templates, not YAML, so charts/ is never yamllinted.
+extends: default
+
+rules:
+  # House style: no leading `---` on single-document files.
+  document-start: disable
+  # 80 is tight for Kubernetes manifests with inline comments.
+  line-length:
+    max: 120
+  # `truthy` stays at the default (only true/false allowed); `--strict` turns its
+  # warning into a failure. It catches `prune: yes`, which YAML 1.1 parsers read
+  # as a boolean - so it passes schema validation silently.

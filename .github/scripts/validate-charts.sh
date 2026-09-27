@@ -9,12 +9,17 @@
 # only long-stable yq v4 features, so a minor bump shouldn't matter; if an image
 # update ever breaks this, pin yq with a checksum-verified download like helm.
 # Locally, the Python `yq` (a jq wrapper) is a different tool and won't work.
-# Run from the repo root:  KUBE_VERSION=1.36.4 SCHEMA_REF=<sha> .github/scripts/validate-charts.sh
+#
+# Versions come from .github/ci/versions.env. Run:  .github/scripts/validate-charts.sh
 set -euo pipefail
 shopt -s globstar nullglob
+cd "$(dirname "$0")/../.." # repo root, wherever this is run from
 
-: "${KUBE_VERSION:?set KUBE_VERSION, e.g. 1.36.4}"
-: "${SCHEMA_REF:?set SCHEMA_REF to a yannh/kubernetes-json-schema commit}"
+# shellcheck source=.github/ci/versions.env
+source .github/ci/versions.env
+
+: "${KUBE_VERSION:?missing from .github/ci/versions.env}"
+: "${SCHEMA_REF:?missing from .github/ci/versions.env}"
 schema="https://raw.githubusercontent.com/yannh/kubernetes-json-schema/${SCHEMA_REF}/{{ .NormalizedKubernetesVersion }}-standalone{{ .StrictSuffix }}/{{ .ResourceKind }}{{ .KindSuffix }}.json"
 
 work=$(mktemp -d)
