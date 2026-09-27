@@ -71,6 +71,8 @@ cd backend
 uv sync                         # installs dependencies into .venv
 uv run alembic upgrade head     # creates the accounts/holdings tables
 uv run python seed.py           # loads synthetic seed data
+uv run pytest                                          # tests
+uv run ruff check . && uv run ruff format --check .    # the lint CI runs
 uv run uvicorn app.main:app --reload
 ```
 
@@ -171,7 +173,23 @@ Details, including bootstrap and disaster-recovery steps: [`charts/README.md`](c
 
 ## CI
 
-In progress. The target flow: a pull request runs CI (per-component path filtering, one
-required status check); merging to `main` builds and pushes SHA-tagged images to GHCR and
-bumps the tag in `charts/*/values-dev.yaml`; Argo CD then syncs the new tag. Once CI is in
-place, every change goes branch → PR → CI → squash merge, with `main` protected.
+Every change goes branch → PR → CI → squash merge. `main` is protected by a repository
+ruleset, recorded in [`.github/rulesets/protect-main.json`](.github/rulesets/protect-main.json):
+PRs only, squash merges only, no force pushes or deletion, and the `ci-ok` check must pass
+on a branch that is up to date with `main`.
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every pull request:
+
+| Job | Runs when | Checks |
+| --- | --- | --- |
+| `changes` | always | which components the PR touches (`dorny/paths-filter`) |
+| `backend` | `backend/**` changes | `uv sync --locked`, ruff lint + format check, pytest |
+| `frontend` | `frontend/**` changes | `pnpm install --frozen-lockfile`, `tsc` + Vite build |
+| `ci-ok` | always | fails if any job above failed or was cancelled; skipped jobs pass |
+
+`ci-ok` is the only required check, so adding a job means adding it to `ci-ok`'s `needs:`,
+with no ruleset change. Actions are pinned to full commit SHAs. The ruleset JSON is applied
+with `gh api --method PUT repos/<owner>/profolio/rulesets/<id> --input <file>`.
+
+Still to come: on merge to `main`, build SHA-tagged images and bump the tag in
+`charts/*/values-dev.yaml` for Argo CD to sync.
