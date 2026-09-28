@@ -10,11 +10,14 @@ files behind it, where each version pin lives, and how to run the same checks lo
 | `.github/workflows/ci.yml` | The PR workflow: decides which jobs a PR needs, runs them, reports one result |
 | `.github/scripts/validate-charts.sh` | Lints, renders and schema-checks every chart the way Argo CD deploys it |
 | `.github/scripts/validate-argocd.sh` | yamllint, then schema-checks the Argo CD Applications against Argo's own CRD |
+| `.github/scripts/lint-workflows.sh` | actionlint over the workflows, shellcheck over the CI scripts and git hooks |
+| `.github/scripts/lint-dockerfiles.sh` | hadolint over every Dockerfile git tracks |
 | `.github/scripts/load-versions.sh` | CI only: loads `versions.env` into the rest of a job |
 | `.github/ci/versions.env` | Versions and checksums for tools CI downloads directly |
 | `.github/ci/requirements.in` / `.txt` | Python tools for CI; the `.txt` is generated, with hashes |
 | `.github/rulesets/protect-main.json` | Record of the branch protection on `main` |
 | `.yamllint.yaml` | yamllint rules (repo root, where yamllint looks for it) |
+| `.shellcheckrc` | shellcheck settings: follow `source`d files, resolve `source=` hints from the script's directory |
 
 Checks live in scripts rather than inline in the workflow so they can be run locally, exactly
 as CI runs them.
@@ -58,12 +61,19 @@ exists. **Each pin lives where the tool that updates it can find it:**
 
 ## Run the checks locally
 
-From anywhere in the repo, with `helm`, `kubeconform`, `yq` (mikefarah v4) and `uv` installed:
+From anywhere in the repo, with `helm`, `kubeconform`, `yq` (mikefarah v4), `uv`,
+`actionlint`, `shellcheck` and `hadolint` installed:
 
 ```sh
 .github/scripts/validate-charts.sh
 uv run --no-project --with-requirements .github/ci/requirements.txt -- .github/scripts/validate-argocd.sh
+.github/scripts/lint-workflows.sh
+.github/scripts/lint-dockerfiles.sh
 ```
+
+The linters add rules between releases, so install the versions in `versions.env`; the lint
+scripts warn if yours differ. `lint-workflows.sh` refuses to run without shellcheck, because
+actionlint would otherwise skip checking `run:` blocks without saying so.
 
 Versions come from `versions.env`; no environment variables needed. A local Helm that differs
 from Argo CD's is fine for a quick check; CI uses Argo's.
