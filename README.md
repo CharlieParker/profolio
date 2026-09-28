@@ -187,6 +187,8 @@ on a branch that is up to date with `main`.
 | `frontend` | `frontend/**` changes | `pnpm install --frozen-lockfile`, `tsc` + Vite build |
 | `charts` | `charts/**` or `argocd/apps/**` changes | `helm lint` + `helm template` with Argo CD's Helm, `kubeconform` |
 | `argocd` | `argocd/**` changes | `yamllint`, `kubeconform` against Argo CD's Application CRD |
+| `workflows` | `.github/**` or `.githooks/**` changes | `actionlint` (with `shellcheck` on `run:` blocks), `shellcheck` on CI scripts and hooks |
+| `dockerfiles` | any `Dockerfile` changes | `hadolint` on every tracked Dockerfile |
 | `ci-ok` | always | fails if any job above failed or was cancelled; skipped jobs pass |
 
 `ci-ok` is the only required check, so adding a job means adding it to `ci-ok`'s `needs:`,

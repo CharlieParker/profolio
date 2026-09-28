@@ -1,0 +1,9 @@
+# shellcheck settings for every shell script in the repo. shellcheck finds this file by
+# searching upward from each script it checks, so CI, a terminal in any directory and an
+# editor integration all behave the same way.
+
+# Follow files pulled in with `source`, so the variables they define are known.
+external-sources=true
+# Resolve `# shellcheck source=<path>` hints relative to the script's own directory,
+# not the directory shellcheck happens to be run from.
+source-path=SCRIPTDIR

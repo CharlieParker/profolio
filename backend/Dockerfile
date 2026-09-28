@@ -28,8 +28,10 @@ FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145
 
 LABEL org.opencontainers.image.source=https://github.com/charlieparker/profolio
 
-RUN groupadd --system app \
-    && useradd --system --gid app --no-create-home --shell /usr/sbin/nologin app
+# fixed IDs above the ranges distros allocate, so they can't collide with a node's users;
+# the name is kept so --chown and `ls -l` still read as "app"
+RUN groupadd --system --gid 10001 app \
+    && useradd --system --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
 
 WORKDIR /app
 
@@ -40,7 +42,10 @@ COPY --from=builder --chown=app:app /app/alembic.ini ./
 
 ENV PATH="/app/.venv/bin:$PATH"
 
-USER app
+# numeric, not "app": Kubernetes' runAsNonRoot can only verify a numeric user from the
+# image config (it never reads the image's /etc/passwd); the group is explicit so it isn't
+# looked up, and can't fall back to GID 0 (root's group)
+USER 10001:10001
 
 EXPOSE 8000
 

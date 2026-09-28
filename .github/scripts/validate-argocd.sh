@@ -11,7 +11,7 @@ set -euo pipefail
 shopt -s globstar nullglob
 cd "$(dirname "$0")/../.." # repo root, wherever this is run from
 
-# shellcheck source=.github/ci/versions.env
+# shellcheck source=../ci/versions.env
 source .github/ci/versions.env
 
 : "${ARGOCD_VERSION:?missing from .github/ci/versions.env}"

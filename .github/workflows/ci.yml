@@ -22,6 +22,8 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       charts: ${{ steps.filter.outputs.charts }}
       argocd: ${{ steps.filter.outputs.argocd }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+      dockerfiles: ${{ steps.filter.outputs.dockerfiles }}
     steps:
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
@@ -47,6 +49,18 @@ jobs:
               - '.github/ci/requirements.txt'
               - '.github/scripts/validate-argocd.sh'
               - '.github/scripts/load-versions.sh'
+              - '.github/workflows/ci.yml'
+            workflows:
+              - '.github/workflows/**'
+              - '.github/scripts/**' # includes load-versions.sh and lint-workflows.sh
+              - '.githooks/**'
+              - '.shellcheckrc'
+              - '.github/ci/versions.env'
+            dockerfiles:
+              - '**/*Dockerfile' # same pattern lint-dockerfiles.sh gives git ls-files
+              - '.github/scripts/lint-dockerfiles.sh'
+              - '.github/scripts/load-versions.sh'
+              - '.github/ci/versions.env'
               - '.github/workflows/ci.yml'
 
   backend:
@@ -152,8 +166,59 @@ jobs:
       - run: yamllint --version && kubeconform -v && python3 --version
       - run: .github/scripts/validate-argocd.sh
 
+  workflows:
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: .github/scripts/load-versions.sh
+      # The runner image has its own shellcheck, which actionlint would pick up unpinned.
+      # $GITHUB_PATH entries go in front of PATH, so this pinned copy wins.
+      - name: Install actionlint and shellcheck (checksum-verified)
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSLo actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  actionlint.tgz" | sha256sum -c -
+          tar -xzf actionlint.tgz actionlint
+          curl -fsSLo shellcheck.tgz "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.gz"
+          echo "${SHELLCHECK_SHA256}  shellcheck.tgz" | sha256sum -c -
+          tar -xzf shellcheck.tgz --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - run: actionlint -version && shellcheck --version && command -v shellcheck
+      - run: .github/scripts/lint-workflows.sh
+
+  dockerfiles:
+    needs: changes
+    if: needs.changes.outputs.dockerfiles == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: .github/scripts/load-versions.sh
+      - name: Install hadolint (checksum-verified)
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSLo hadolint "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-linux-x86_64"
+          echo "${HADOLINT_SHA256}  hadolint" | sha256sum -c -
+          chmod +x hadolint
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - run: hadolint --version
+      - run: .github/scripts/lint-dockerfiles.sh
+
   ci-ok:
-    needs: [changes, backend, frontend, charts, argocd]
+    needs: [changes, backend, frontend, charts, argocd, workflows, dockerfiles]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2
