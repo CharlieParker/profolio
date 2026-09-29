@@ -71,8 +71,9 @@ uv run --no-project --with-requirements .github/ci/requirements.txt -- .github/s
 .github/scripts/lint-dockerfiles.sh
 ```
 
-The linters add rules between releases, so install the versions in `versions.env`; the lint
-scripts warn if yours differ. `lint-workflows.sh` refuses to run without shellcheck, because
+Install the versions in `versions.env`: the linters add rules between releases, and yq
+decides which charts get rendered. The lint scripts and `validate-charts.sh` warn if yours
+differ. `lint-workflows.sh` refuses to run without shellcheck, because
 actionlint would otherwise skip checking `run:` blocks without saying so.
 
 Versions come from `versions.env`; no environment variables needed. A local Helm that differs

@@ -3,12 +3,10 @@
 # The list of charts comes from the Argo CD Applications under argocd/apps/,
 # so a new chart is picked up by adding its Application - nothing to edit here.
 #
-# Needs helm (the version Argo CD bundles), kubeconform and yq (mikefarah v4).
-# In CI, yq is the copy pre-installed on the runner image and is NOT pinned: it
-# moves when GitHub updates ubuntu-24.04 (weekly-ish). The expressions below use
-# only long-stable yq v4 features, so a minor bump shouldn't matter; if an image
-# update ever breaks this, pin yq with a checksum-verified download like helm.
-# Locally, the Python `yq` (a jq wrapper) is a different tool and won't work.
+# Needs helm (the version Argo CD bundles), kubeconform and yq (mikefarah v4), at the
+# versions in .github/ci/versions.env. yq decides which charts get rendered and with
+# which values, so it is pinned like everything else; a different local version still
+# runs, with a warning. The Python `yq` (a jq wrapper) is a different tool: rejected.
 #
 # Versions come from .github/ci/versions.env. Run:  .github/scripts/validate-charts.sh
 set -euo pipefail
@@ -20,6 +18,16 @@ source .github/ci/versions.env
 
 : "${KUBE_VERSION:?missing from .github/ci/versions.env}"
 : "${SCHEMA_REF:?missing from .github/ci/versions.env}"
+: "${YQ_VERSION:?missing from .github/ci/versions.env}"
+
+yq_version=$(yq --version 2>&1 || true)
+if [[ $yq_version != *mikefarah* ]]; then
+  echo "::error::needs mikefarah's yq (v4, Go); found: ${yq_version:-nothing}"
+  exit 1
+fi
+if [[ $yq_version != *" v${YQ_VERSION}" ]]; then
+  echo "warning: $yq_version here, CI pins $YQ_VERSION" >&2
+fi
 schema="https://raw.githubusercontent.com/yannh/kubernetes-json-schema/${SCHEMA_REF}/{{ .NormalizedKubernetesVersion }}-standalone{{ .StrictSuffix }}/{{ .ResourceKind }}{{ .KindSuffix }}.json"
 
 work=$(mktemp -d)
