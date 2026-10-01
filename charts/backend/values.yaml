@@ -1,6 +1,8 @@
 image:
   repository: ghcr.io/charlieparker/profolio-backend
   tag: latest
+  # Optional "sha256:…". When set, the image is pulled by digest; see _helpers.tpl
+  digest: ""
   # :latest is mutable, so always check for a newer image
   pullPolicy: Always
 

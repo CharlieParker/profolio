@@ -1,6 +1,8 @@
 image:
   repository: ghcr.io/charlieparker/profolio-frontend
   tag: latest
+  # Optional "sha256:…". When set, the image is pulled by digest; see _helpers.tpl
+  digest: ""
   pullPolicy: Always
 
 # Private GHCR package: pulled with this Secret, named explicitly here rather than
