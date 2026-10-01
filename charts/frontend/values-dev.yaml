@@ -1,4 +1,13 @@
 # Overlay for the `profolio-dev` release: helm install -f values.yaml -f values-dev.yaml
 #
 # values.yaml holds the real defaults for this chart; this file only lists fields that
-# differ for dev. Empty for now — see charts/postgres/values-dev.yaml for the full reasoning.
+# differ for dev. See charts/postgres/values-dev.yaml for the full reasoning.
+#
+# Dev runs the image CI built from one commit on main. `tag` is that commit (which code);
+# `digest` is what actually gets pulled (which bytes), so a moved tag can't change what
+# runs. Bump both together, from the "Deploy dev" run summary for that commit.
+image:
+  tag: bbae3f0404d8dc535fd7d17f10bc7dfb6f88ef0e
+  digest: sha256:7a7074abdb1a74f6f17278954a1e52e834a74cb04b2094b091b9c5b8c34b7737
+  # A digest can't point at different bytes, so there's nothing to re-check on pod start
+  pullPolicy: IfNotPresent
