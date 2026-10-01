@@ -32,7 +32,7 @@ spec:
         {{- toYaml .Values.imagePullSecrets | nindent 8 }}
       containers:
         - name: migrate
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: {{ include "backend.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: {{ toYaml .Values.migrate.command | nindent 12 }}
           env:

@@ -28,3 +28,20 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "frontend.selectorLabels" -}}
 app: {{ include "frontend.fullname" . }}
 {{- end -}}
+
+{{/*
+Image reference: repository:tag, plus @digest when image.digest is set. With a digest the
+container runtime pulls exactly those bytes and ignores the tag, which is then only a
+human-readable label (the commit the image was built from). Without one it pulls by tag.
+A set digest must look like one, so a bad paste fails the render (and CI), not the pull.
+*/}}
+{{- define "frontend.image" -}}
+{{- $ref := printf "%s:%s" .Values.image.repository .Values.image.tag -}}
+{{- with .Values.image.digest -}}
+{{- if not (regexMatch "^sha256:[a-f0-9]{64}$" .) -}}
+{{- fail (printf "image.digest must be sha256:<64 hex chars>, got %q" .) -}}
+{{- end -}}
+{{- $ref = printf "%s@%s" $ref . -}}
+{{- end -}}
+{{- $ref -}}
+{{- end -}}
