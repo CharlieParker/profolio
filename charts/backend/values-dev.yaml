@@ -7,7 +7,7 @@
 # `digest` is what actually gets pulled (which bytes), so a moved tag can't change what
 # runs. Bump both together, from the "Deploy dev" run summary for that commit. 
 image:
-  tag: bbae3f0404d8dc535fd7d17f10bc7dfb6f88ef0e
-  digest: sha256:00334a8da15699f59e0d0b564183c514c9767610bd3e4c4f71f94475c738228e
+  tag: ec307add3add35b0f7cf2799f124122be4581b79
+  digest: sha256:388a0fbe5e559106235bb3de9b971a1a99a003959dd886573ac0b857b195ebbe
   # A digest can't point at different bytes, so there's nothing to re-check on pod start
   pullPolicy: IfNotPresent
