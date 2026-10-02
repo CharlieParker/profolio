@@ -42,6 +42,17 @@ COPY --from=builder --chown=app:app /app/alembic.ini ./
 
 ENV PATH="/app/.venv/bin:$PATH"
 
+# the commit this image was built from, passed in by CI (deploy-dev.yml); "unknown" for
+# any other build. An ARG only exists during the build, so ENV carries it into the
+# running container, where the app reads it for /api/version. Declared down here because
+# ARGs are per stage, and because the value changes on every build: only the cheap
+# metadata-only layers below it miss the cache
+ARG GIT_SHA=unknown
+ENV GIT_SHA=${GIT_SHA}
+# the standard OCI label for the source commit: readable from the registry without
+# running the image
+LABEL org.opencontainers.image.revision=${GIT_SHA}
+
 # numeric, not "app": Kubernetes' runAsNonRoot can only verify a numeric user from the
 # image config (it never reads the image's /etc/passwd); the group is explicit so it isn't
 # looked up, and can't fall back to GID 0 (root's group)
