@@ -2,8 +2,8 @@
 
 Profolio is a small portfolio-analysis app used as a vehicle for platform-engineering
 practice: containerised, deployed to a single-node k3s cluster with Helm, managed by Argo CD
-(GitOps), and — next — built and shipped by a GitHub Actions pipeline. The app is
-deliberately modest; the platform around it is the point.
+(GitOps), and built and shipped by a GitHub Actions pipeline. The app is deliberately
+modest; the platform around it is the point.
 
 **This repo is public.** Keep this file, and everything else committed, to what anyone
 working on the code would need. Never add personal details about the author — employer,
@@ -19,8 +19,9 @@ role, background — anywhere in the repo: code, docs, commit messages or PR tex
 - **No attribution.** Never add `Co-Authored-By: Claude` or similar trailers to commits or PR
   descriptions. Enforced two ways: `.claude/settings.json`'s `attribution` block (stops it
   being written) and the `commit-msg` hook in `.githooks/` (catches it if it slips through).
-- **Branch → PR → CI → squash merge.** `main` is being put behind a ruleset as part of the
-  CI/CD work below. Once that lands, no direct commits to `main`.
+- **Branch → PR → CI → squash merge.** `main` is behind a ruleset
+  (`.github/rulesets/protect-main.json`): no direct commits, squash merges only, and one
+  required check, `ci-ok`, on a branch that is up to date with `main`.
 
 ## Stack
 
@@ -64,11 +65,28 @@ fixtures, not in a sample PDF, not in a README screenshot. Real holdings stay lo
 - `k8s/` holds the original raw manifests, kept as a reference; superseded by the charts.
 - Redis is deliberately deferred until a real feature needs it.
 
-## Current focus — CI/CD pipeline
+## Pipeline — settled shape, don't re-derive
 
-One code change flowing end to end: PR → CI (`ci.yml`: per-component path filtering inside
-the workflow, single required `ci-ok` aggregator check) → SHA-tagged image pushed on merge
-(`deploy-dev.yml`) → CI commits the tag bump to `charts/*/values-dev.yaml` via a GitHub App
-token → Argo syncs. Security scanners (Trivy, Checkov, Syft SBOM, gitleaks) follow as a
-second pass. Then OIDC via Keycloak as the first feature through the pipeline.
-PDF import, price history and broader tests come after.
+A merged pull request is the only route to dev, with no manual step after the merge:
+
+- **PR → CI** (`ci.yml`): per-component path filtering inside the workflow, and a single
+  required `ci-ok` aggregator check.
+- **Merge → images** (`deploy-dev.yml`): each image whose code changed is built and pushed
+  to GHCR, tagged with the full commit SHA.
+- **Images → dev:** the same workflow's `bump` job opens a pull request as the
+  `profolio-dev-bump` GitHub App, setting `image.tag` and `image.digest` in
+  `charts/*/values-dev.yaml`. Auto-merge lands it once `ci-ok` passes, and Argo syncs. An
+  image whose digest hasn't changed is left alone. Those two fields are normally the
+  bot's to set, not a feature PR's.
+- **Which code is running:** `GET /api/version` on the backend reports the commit its
+  image was built from, with a link.
+
+`.github/ci/README.md` explains the files, where each version pin lives and what isn't
+pinned.
+
+## Current focus
+
+Small test PRs for the pipeline's untried cases: a bot PR that falls behind `main`, a bot
+PR whose checks fail, a frontend-only change. Then OIDC via Keycloak as the first feature
+through the pipeline, and security scanners (Trivy, Checkov, Syft SBOM, gitleaks) as a
+second pass on it. PDF import, price history and broader tests come after.
