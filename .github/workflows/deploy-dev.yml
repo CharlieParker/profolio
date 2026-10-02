@@ -1,8 +1,9 @@
 name: Deploy dev
 
 # Builds and pushes the images whose code changed, tagged with the commit they were built
-# from. It deploys nothing: dev moves when a PR bumps charts/*/values-dev.yaml, and that
-# PR only touches charts/, so it never triggers a rebuild here.
+# from, then opens a pull request pointing dev at them (the `bump` job). Dev moves when
+# that PR merges and Argo CD syncs. The PR only touches charts/, so its merge matches no
+# filter below: nothing is rebuilt and nothing is bumped again.
 on:
   push:
     branches: [main]
@@ -11,9 +12,10 @@ on:
 permissions:
   contents: read
 
-# No concurrency group: every run pushes its own <sha> tag, so runs can't collide, and a
-# group would cancel queued runs - losing builds when merges touch different images.
-# Ordering matters for the bump that edits values-dev.yaml, not for builds.
+# No workflow-level concurrency group: every run pushes its own <sha> tag, so builds can't
+# collide, and a group would cancel queued runs - losing builds when merges touch different
+# images. Ordering matters for the bump that edits values-dev.yaml, so the group is on
+# that job alone.
 
 jobs:
   changes:
@@ -113,3 +115,124 @@ jobs:
             echo "${IMAGE}:${SHA}@${DIGEST}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Points dev at what `build` just pushed, through an ordinary pull request: the bot gets
+  # no way round the ruleset, so ci-ok checks its change like anyone else's.
+  bump:
+    # Skipped when `build` is skipped (nothing to build) or failed (fix the build first).
+    needs: [changes, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # A GitHub environment: a named set of secrets and variables with its own access rule.
+    # This one holds the bump App's private key and client ID, and only runs on main may
+    # use it, so a workflow edited on a pull request branch can't read the key.
+    environment: dev-bump
+    # One bump at a time. Each waits for its PR to merge (last step), so the next starts
+    # from a main that already contains it. cancel-in-progress: false lets the running one
+    # finish; only one more can queue behind it, and a third arriving replaces that one.
+    # If that ever drops a bump, re-run the build that lost it.
+    concurrency:
+      group: bump-dev
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read # read the pushed images' digests from GHCR
+    defaults:
+      run:
+        shell: bash # explicit shell adds -o pipefail; the implicit default is only bash -e
+    env:
+      SHA: ${{ github.sha }}
+    steps:
+      # Trades the App's private key for a token that lasts an hour and can do only what
+      # the App may: write contents and pull requests in this repository. GITHUB_TOKEN
+      # can't be used instead: a pull request it opens doesn't start workflows, so ci-ok
+      # would never run on it.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          client-id: ${{ vars.BUMP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.BUMP_APP_PRIVATE_KEY }}
+      # main, not the commit that started this run: a bump that waited in the queue must
+      # start from whatever merged meanwhile.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          token: ${{ steps.app-token.outputs.token }}
+          # Kept, unlike every other checkout here: this job pushes a branch as the App.
+          persist-credentials: true
+      - run: .github/scripts/load-versions.sh
+      - name: Install yq (checksum-verified)
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSLo yq "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_amd64"
+          echo "${YQ_SHA256}  yq" | sha256sum -c -
+          chmod +x yq
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set tag and digest in values-dev.yaml
+        id: bump
+        env:
+          # JSON list of the images this run built, e.g. ["backend"]
+          IMAGES: ${{ needs.changes.outputs.images }}
+        run: |
+          mapfile -t images < <(yq -p json '.[]' <<< "$IMAGES")
+          .github/scripts/bump-values.sh "$SHA" "${images[@]}"
+      # Skipped when every digest was already the pinned one: nothing to commit.
+      - name: Open the pull request and wait for it to merge
+        if: steps.bump.outputs.changed != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          CHANGED: ${{ steps.bump.outputs.changed }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Commit as the App's bot user, so GitHub shows the commit as the App's.
+          bot_id=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${bot_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+
+          # Unique per attempt, so a re-run never collides with a branch an earlier one left.
+          branch="bump/dev-${SHA:0:7}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          title="deploy(dev): pin ${CHANGED// / and } to ${SHA:0:7}"
+          git switch -c "$branch"
+          git commit -am "$title"
+          git push origin "$branch"
+          pr=$(gh pr create --base main --head "$branch" --title "$title" \
+            --body "Opened by the Deploy dev workflow: ${RUN_URL}")
+          echo "Bump pull request: ${pr}" >> "$GITHUB_STEP_SUMMARY"
+
+          # Auto-merge: GitHub squash-merges the PR itself once ci-ok passes.
+          gh pr merge "$pr" --auto --squash
+
+          # Wait for that merge, so this job is green only when the bump has landed, and
+          # the next queued bump starts after it. If something else merges to main first,
+          # the ruleset's "up to date" rule blocks this PR until its branch has main's new
+          # commits: update-branch merges them in, which runs ci-ok again.
+          deadline=$((SECONDS + 600))
+          while true; do
+            read -r state merge_state < <(gh pr view "$pr" --json state,mergeStateStatus \
+              --jq '"\(.state) \(.mergeStateStatus)"')
+            case "$state" in
+              MERGED)
+                echo "merged: $pr"
+                break
+                ;;
+              CLOSED)
+                echo "::error::$pr was closed without merging"
+                exit 1
+                ;;
+            esac
+            if [[ $merge_state == BEHIND ]]; then
+              echo "main has moved on: updating the pull request's branch"
+              gh pr update-branch "$pr"
+            fi
+            if ((SECONDS > deadline)); then
+              echo "::error::$pr has not merged after 10 minutes - look at its checks"
+              exit 1
+            fi
+            sleep 15
+          done

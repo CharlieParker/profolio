@@ -1,17 +1,25 @@
 # CI: how it fits together
 
-Every pull request runs [`../workflows/ci.yml`](../workflows/ci.yml). This page explains the
-files behind it, where each version pin lives, and how to run the same checks locally.
+Two workflows live here. Every pull request runs [`../workflows/ci.yml`](../workflows/ci.yml),
+which checks the change. Every merge to `main` runs
+[`../workflows/deploy-dev.yml`](../workflows/deploy-dev.yml), which builds the images and
+points the dev environment at them. This page explains the files behind both, where each
+version pin lives, what isn't pinned, and how to run the same checks locally.
+
+It lives in `.github/ci/` rather than `.github/` on purpose: GitHub shows a
+`.github/README.md` on the repository's front page in place of the one at the root.
 
 ## The files
 
 | Path | What it is |
 | --- | --- |
 | `.github/workflows/ci.yml` | The PR workflow: decides which jobs a PR needs, runs them, reports one result |
+| `.github/workflows/deploy-dev.yml` | The merge workflow: builds and pushes the changed images, then opens the pull request that deploys them to dev |
 | `.github/scripts/validate-charts.sh` | Lints, renders and schema-checks every chart the way Argo CD deploys it |
 | `.github/scripts/validate-argocd.sh` | yamllint, then schema-checks the Argo CD Applications against Argo's own CRD |
 | `.github/scripts/lint-workflows.sh` | actionlint over the workflows, shellcheck over the CI scripts and git hooks |
 | `.github/scripts/lint-dockerfiles.sh` | hadolint over every Dockerfile git tracks |
+| `.github/scripts/bump-values.sh` | Writes an image's tag and digest into its chart's `values-dev.yaml`, unless the digest is already the pinned one |
 | `.github/scripts/load-versions.sh` | CI only: loads `versions.env` into the rest of a job |
 | `.github/ci/versions.env` | Versions and checksums for tools CI downloads directly |
 | `.github/ci/requirements.in` / `.txt` | Python tools for CI; the `.txt` is generated, with hashes |
@@ -31,6 +39,25 @@ as CI runs them.
 
 Adding a job means three edits to `ci.yml`: a path filter in `changes`, the job, and an entry
 in `ci-ok`'s `needs:`. The ruleset doesn't change.
+
+## How a merge reaches dev
+
+1. `changes` works out which images the merged commit affects. A commit that touches
+   neither `backend/`, `frontend/` nor the workflow itself builds nothing, and the run ends.
+2. `build` builds each affected image and pushes it to GHCR, tagged with the full commit SHA.
+3. `bump` asks the registry for each new image's digest and writes tag and digest into
+   `charts/<image>/values-dev.yaml`. An image whose digest hasn't changed is left alone.
+4. If anything changed, `bump` opens a pull request as the `profolio-dev-bump` GitHub App
+   and turns on auto-merge. `ci.yml` checks it like any other pull request, and GitHub
+   merges it once `ci-ok` passes. The App cannot bypass the ruleset.
+5. Argo CD sees the new commit on `main` and rolls the image out.
+
+The bump pull request only touches `charts/`, so its own merge stops at step 1: that is
+what keeps the workflow from triggering itself in a loop.
+
+The App may write contents and pull requests in this repository and nothing else; without
+the Workflows permission, GitHub rejects any push from it that changes a workflow file. Its
+private key is a secret in the `dev-bump` environment, which only runs on `main` can use.
 
 ## Where each pin lives
 
@@ -58,6 +85,21 @@ exists. **Each pin lives where the tool that updates it can find it:**
   sha256, so a changed file fails the build. Both the scripts (`source`) and CI (via
   `load-versions.sh`) read it, so it must stay plain `KEY=value` lines and `#` comments;
   `load-versions.sh` fails the job if it isn't.
+
+## What isn't pinned
+
+"Everything is pinned" has limits, and these are the known ones:
+
+- **The runner image.** Jobs run on `ubuntu-24.04`, which names an image GitHub rebuilds
+  about weekly. The basics every job leans on come from it unpinned: `bash`, `git`, `curl`,
+  `tar`, `sha256sum`, `python3` and the Docker engine.
+- **`gh`, the GitHub CLI**, in `deploy-dev.yml`'s `bump` job. It opens the pull request,
+  turns on auto-merge and waits for the merge, using whatever version the runner image has.
+  This is the one tool whose behaviour a job depends on that is taken from the image. It
+  only calls GitHub's own API, and a change in it would show up as a failed `bump` job
+  rather than a wrong deployment.
+- **`docker buildx imagetools`**, in the same job, reads a digest from the registry using
+  the runner's Docker. `bump-values.sh` checks the answer looks like a digest before using it.
 
 ## Run the checks locally
 
