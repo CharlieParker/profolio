@@ -21,3 +21,9 @@ class AccountSummary(BaseModel):
     account_name: str
     holding_count: int
     total_value: float
+
+
+class VersionOut(BaseModel):
+    service: str
+    commit: str
+    commit_url: str | None

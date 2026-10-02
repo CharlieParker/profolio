@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env")
 
     database_url: str = "postgresql+psycopg://profolio:profolio@localhost:5432/profolio"
+    # the commit the image was built from: set as GIT_SHA by the Dockerfile, from a
+    # build arg CI passes in. Anything not built by CI reports "unknown"
+    git_sha: str = "unknown"
 
 
 settings = Settings()

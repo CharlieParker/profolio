@@ -80,6 +80,10 @@ jobs:
           platforms: linux/amd64 # the cluster's architecture; no emulation needed
           push: true
           tags: ${{ env.IMAGE }}:${{ github.sha }}
+          # The same commit as the tag, baked into the backend image for /api/version.
+          # The frontend Dockerfile declares no GIT_SHA arg yet, so there it is unused.
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           # Off for now so the pushed digest is the image itself, not an index wrapping it
           # and an attestation. Slice 2 adds signed build attestations properly.
           provenance: false
