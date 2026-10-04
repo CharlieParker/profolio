@@ -19,6 +19,7 @@ It lives in `.github/ci/` rather than `.github/` on purpose: GitHub shows a
 | `.github/scripts/validate-argocd.sh` | yamllint, then schema-checks the Argo CD Applications against Argo's own CRD |
 | `.github/scripts/lint-workflows.sh` | actionlint over the workflows, shellcheck over the CI scripts and git hooks |
 | `.github/scripts/lint-dockerfiles.sh` | hadolint over every Dockerfile git tracks |
+| `.github/scripts/check-links.sh` | lychee over every Markdown file git tracks: links to files and headings inside the repo. External URLs are not checked |
 | `.github/scripts/bump-values.sh` | Writes an image's tag and digest into its chart's `values-dev.yaml`, unless the digest is already the pinned one |
 | `.github/scripts/load-versions.sh` | CI only: loads `versions.env` into the rest of a job |
 | `.github/ci/versions.env` | Versions and checksums for tools CI downloads directly |
@@ -39,6 +40,12 @@ as CI runs them.
 
 Adding a job means three edits to `ci.yml`: a path filter in `changes`, the job, and an entry
 in `ci-ok`'s `needs:`. The ruleset doesn't change.
+
+A job's filter lists what it checks and what does the checking, so a change to either runs
+it. The three files every job that installs a pinned tool depends on (`load-versions.sh`,
+`versions.env` and `ci.yml` itself) are written once, as `pinned-tools` at the top of the
+filters, and each such job's filter includes them with `- *pinned-tools`. `pinned-tools` is
+a list to reuse, not a job.
 
 ## How a merge reaches dev
 
@@ -104,19 +111,23 @@ exists. **Each pin lives where the tool that updates it can find it:**
 ## Run the checks locally
 
 From anywhere in the repo, with `helm`, `kubeconform`, `yq` (mikefarah v4), `uv`,
-`actionlint`, `shellcheck` and `hadolint` installed:
+`actionlint`, `shellcheck`, `hadolint` and `lychee` installed:
 
 ```sh
 .github/scripts/validate-charts.sh
 uv run --no-project --with-requirements .github/ci/requirements.txt -- .github/scripts/validate-argocd.sh
 .github/scripts/lint-workflows.sh
 .github/scripts/lint-dockerfiles.sh
+.github/scripts/check-links.sh
 ```
 
 Install the versions in `versions.env`: the linters add rules between releases, and yq
-decides which charts get rendered. The lint scripts and `validate-charts.sh` warn if yours
-differ. `lint-workflows.sh` refuses to run without shellcheck, because
-actionlint would otherwise skip checking `run:` blocks without saying so.
+decides which charts get rendered. The lint scripts, `check-links.sh` and
+`validate-charts.sh` warn if yours differ. `lint-workflows.sh` refuses to run without
+shellcheck, because actionlint would otherwise skip checking `run:` blocks without saying so.
+
+`check-links.sh` only checks links between files in this repo. It runs lychee offline, so
+external URLs are skipped and a dead one passes.
 
 Versions come from `versions.env`; no environment variables needed. A local Helm that differs
 from Argo CD's is fine for a quick check; CI uses Argo's.
