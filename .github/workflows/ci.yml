@@ -24,11 +24,20 @@ jobs:
       argocd: ${{ steps.filter.outputs.argocd }}
       workflows: ${{ steps.filter.outputs.workflows }}
       dockerfiles: ${{ steps.filter.outputs.dockerfiles }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
+            # Not a job: the files every job that installs a pinned tool depends on, so a
+            # change to a pin, to how pins are loaded or to this workflow re-runs them all.
+            # `&pinned-tools` names this list (a YAML anchor) and `- *pinned-tools` in a
+            # filter below includes it.
+            pinned-tools: &pinned-tools
+              - '.github/scripts/load-versions.sh'
+              - '.github/ci/versions.env'
+              - '.github/workflows/ci.yml'
             backend:
               - 'backend/**'
               - '.github/workflows/ci.yml'
@@ -39,17 +48,13 @@ jobs:
               - 'charts/**'
               - 'argocd/apps/**' # an Application's value files change what gets rendered
               - '.github/scripts/validate-charts.sh'
-              - '.github/scripts/load-versions.sh'
-              - '.github/ci/versions.env'
-              - '.github/workflows/ci.yml'
+              - *pinned-tools
             argocd:
               - 'argocd/**'
               - '.yamllint.yaml'
-              - '.github/ci/versions.env'
               - '.github/ci/requirements.txt'
               - '.github/scripts/validate-argocd.sh'
-              - '.github/scripts/load-versions.sh'
-              - '.github/workflows/ci.yml'
+              - *pinned-tools
             workflows:
               - '.github/workflows/**'
               - '.github/scripts/**' # includes load-versions.sh and lint-workflows.sh
@@ -59,9 +64,15 @@ jobs:
             dockerfiles:
               - '**/*Dockerfile' # same pattern lint-dockerfiles.sh gives git ls-files
               - '.github/scripts/lint-dockerfiles.sh'
-              - '.github/scripts/load-versions.sh'
-              - '.github/ci/versions.env'
-              - '.github/workflows/ci.yml'
+              - *pinned-tools
+            docs:
+              - '**/*.md' # same pattern check-links.sh gives git ls-files
+              # A link also breaks when the file it points at goes away, with no Markdown
+              # touched. paths-filter reports a rename as the old name deleted plus the new
+              # name added, so this line catches renames as well as deletions.
+              - deleted: '**'
+              - '.github/scripts/check-links.sh'
+              - *pinned-tools
 
   backend:
     needs: changes
@@ -219,8 +230,31 @@ jobs:
       - run: hadolint --version
       - run: .github/scripts/lint-dockerfiles.sh
 
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: .github/scripts/load-versions.sh
+      - name: Install lychee (checksum-verified)
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSLo lychee.tgz "https://github.com/lycheeverse/lychee/releases/download/lychee-v${LYCHEE_VERSION}/lychee-x86_64-unknown-linux-musl.tar.gz"
+          echo "${LYCHEE_SHA256}  lychee.tgz" | sha256sum -c -
+          tar -xzf lychee.tgz --strip-components=1 lychee-x86_64-unknown-linux-musl/lychee
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - run: lychee --version
+      - run: .github/scripts/check-links.sh
+
   ci-ok:
-    needs: [changes, backend, frontend, charts, argocd, workflows, dockerfiles]
+    needs: [changes, backend, frontend, charts, argocd, workflows, dockerfiles, docs]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2

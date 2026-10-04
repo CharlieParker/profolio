@@ -10,16 +10,15 @@ pulled in when a feature needs it.
 
 ## Next
 
-1. **Docs checks in CI.** A link check over every Markdown file, so a link to a renamed
-   file or a missing heading fails the pull request. Links inside the repo first; external
-   URLs and a Markdown linter can follow.
-2. **Ingress.** Reach the app by name on the local network, so nothing needs
+1. **Ingress.** Reach the app by name on the local network, so nothing needs
    `kubectl port-forward`.
-3. **Allocation chart.** How the portfolio splits by holding and by account. The first
+2. **Allocation chart.** How the portfolio splits by holding and by account. The first
    feature with something to look at, built on the synthetic data already there.
-4. **A public demo on synthetic data.** The app reachable from the internet through an
-   outbound tunnel. No login is needed while the data is synthetic.
-5. **The basic pipeline gates.** Dependabot; an image build and a vulnerability scan on
+3. **A public demo on synthetic data.** The app reachable from the internet through an
+   outbound tunnel. No login is needed while the data is synthetic. Once login exists, the
+   same portfolio becomes a built-in demo user's data: visitors who aren't signed in see
+   it, read-only, and anything that writes requires login.
+4. **The basic pipeline gates.** Dependabot; an image build and a vulnerability scan on
    every pull request (nothing builds a Dockerfile on a pull request today); a secrets scan.
 
 ## Features
@@ -51,7 +50,8 @@ pulled in when a feature needs it.
 - **Observability:** metrics, logs, dashboards and alerts, once there is traffic to observe.
 - **Infrastructure as code** for the cluster-level pieces that are installed by hand today.
 - **Chores:** pin the Postgres image by digest; delete the old `:latest` image tags; a
-  summary table from `ci-ok`.
+  summary table from `ci-ok`; a scheduled check of external links (CI checks only the links
+  between files in the repo); a Markdown linter.
 
 ## Constraints that shape the order
 
