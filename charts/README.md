@@ -55,11 +55,16 @@ named `keycloak-keycloakx-*` (pod `keycloak-keycloakx-0`, admin Service
 `keycloak-0`.
 
 Swap `-f charts/*/values-dev.yaml` for `-f charts/*/values-stage.yaml` and `-n
-profolio-dev` for `-n profolio-stage` to target stage. Both overlay files are currently
-empty placeholders (see each chart's `values-dev.yaml` comment) — stage doesn't diverge
-from dev yet, and `profolio-stage` isn't in use.
+profolio-dev` for `-n profolio-stage` to target stage. `values-dev.yaml` holds what differs
+for dev: for backend and frontend that is the image tag and digest dev runs, which the
+pipeline's `bump` job sets (see [`../.github/ci/README.md`](../.github/ci/README.md)), so
+don't edit those two fields by hand in a feature PR. The `values-stage.yaml` files are still
+empty placeholders, and `profolio-stage` isn't in use.
 
 ## Secrets
+
+[`../docs/bootstrap.md`](../docs/bootstrap.md) lists everything the system needs that is
+created by hand, Secrets included, and walks through a whole setup in order.
 
 Nothing is committed, no value ever goes in git, every Secret is created imperatively. The
 app namespace needs `ghcr-pull` and `postgres-credentials` — the same Secrets the raw
@@ -72,6 +77,10 @@ in its own `keycloak` namespace:
 | `keycloak-admin-credentials` | `keycloak` | `KC_BOOTSTRAP_ADMIN_USERNAME`, `KC_BOOTSTRAP_ADMIN_PASSWORD` | Keycloak's bootstrap admin login |
 
 ## Install order (bootstrap / DR only)
+
+This is the Helm-first order the cluster was actually built in, with Argo CD adopting the
+releases afterwards. [`../docs/bootstrap.md`](../docs/bootstrap.md) describes the same setup
+with Argo CD installed first, which has not been rehearsed yet.
 
 **Before any of this:** `helm install` refuses to take over objects it didn't create. If the
 namespace already has Postgres/backend/frontend objects (e.g. from applying `../k8s/`
