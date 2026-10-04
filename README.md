@@ -14,6 +14,7 @@ frontend/    React + TypeScript (Vite) — the UI
 charts/      Helm charts: postgres, backend, frontend, keycloak (see charts/README.md)
 argocd/      Argo CD Applications (app-of-apps) that deploy the charts
 k8s/         The original raw Kubernetes manifests, kept as a reference; superseded by charts/
+docs/        bootstrap.md: what lives outside the repo and how to create it; roadmap.md: what's planned
 ```
 
 No shared root-level JS/Python workspace tooling (no Nx/Turborepo/pnpm workspaces) — two
@@ -76,8 +77,9 @@ uv run ruff check . && uv run ruff format --check .    # the lint CI runs
 uv run uvicorn app.main:app --reload
 ```
 
-API is then up at `http://localhost:8000` — try `GET /api/accounts/1/holdings` and
-`GET /api/accounts/summary`.
+API is then up at `http://localhost:8000` — try `GET /api/accounts/1/holdings`,
+`GET /api/accounts/summary` and `GET /api/version` (which reports the commit an image was
+built from, so it says `unknown` when run like this).
 
 ### Frontend
 
@@ -171,6 +173,9 @@ in `argocd/`, syncing automatically from `main` — so deploying a change means 
 Images are private GHCR packages. Secrets are created imperatively and never committed.
 Details, including bootstrap and disaster-recovery steps: [`charts/README.md`](charts/README.md).
 
+Everything the system needs that isn't in this repo (tokens, Secrets, GitHub settings and
+the one-off commands that create them) is listed in [`docs/bootstrap.md`](docs/bootstrap.md).
+
 ## CI
 
 Every change goes branch → PR → CI → squash merge. `main` is protected by a repository
@@ -198,5 +203,6 @@ with `gh api --method PUT repos/<owner>/profolio/rulesets/<id> --input <file>`.
 How the pieces fit, where every version pin lives, and how to run the checks locally:
 [`.github/ci/README.md`](.github/ci/README.md).
 
-Still to come: on merge to `main`, build SHA-tagged images and bump the tag in
-`charts/*/values-dev.yaml` for Argo CD to sync.
+On merge to `main`, [`.github/workflows/deploy-dev.yml`](.github/workflows/deploy-dev.yml)
+builds SHA-tagged images and opens the pull request that points dev at them, which merges
+itself once `ci-ok` passes. The same README explains how.
