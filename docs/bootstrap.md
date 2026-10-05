@@ -52,6 +52,12 @@ in encrypted form is planned; see section 5.
 Two things in the cluster are not Secrets but are also made by hand: Keycloak's database
 and role inside Postgres (3.5), and the seed data (3.6).
 
+### On each machine that opens the app
+
+| Thing | What it is for | Created in | To change |
+| --- | --- | --- | --- |
+| Hosts-file entry for `dev.profolio.internal` | The dev hostname is in no DNS, so each machine has to be told which address it means | 3.7 | Edit the line if the node's address or the hostname changes |
+
 ## 2. GitHub
 
 Commands use the [`gh` CLI](https://cli.github.com/), run from a clone of the repo.
@@ -236,6 +242,41 @@ kubectl -n profolio-dev port-forward svc/frontend 8080:80
 Then open `http://localhost:8080`. `http://localhost:8080/api/version` reports the commit
 the running backend image was built from.
 
+### 3.7 Reach the app by name
+
+The port-forward above is a quick look that needs no setup. For everyday use the frontend
+chart creates an Ingress: a rule telling the cluster's ingress controller to send requests
+for one hostname to the `frontend` Service. k3s bundles a controller, Traefik, which listens
+on ports 80 and 443 of the node. The hostname is `ingress.host` in
+`charts/frontend/values-dev.yaml`, `dev.profolio.internal` here; `.internal` is reserved for
+private networks.
+
+That name is in no DNS, so it only works on a machine told which address it means. First
+check the route without changing anything:
+
+```sh
+kubectl get nodes -o wide
+kubectl -n profolio-dev get ingress
+curl -i --resolve dev.profolio.internal:80:<node-ip> http://dev.profolio.internal/api/version
+```
+
+`<node-ip>` is the node's `INTERNAL-IP` from the first command. `--resolve` makes curl use
+that address for the name, for this one request. A `200` with the backend's commit means
+Traefik, the Ingress, the frontend and the backend all work.
+
+Then add one line to the hosts file of the machine the browser runs on:
+
+```text
+<node-ip>  dev.profolio.internal
+```
+
+On Windows the file is `C:\Windows\System32\drivers\etc\hosts`, edited as administrator;
+on Linux and macOS it is `/etc/hosts`. With WSL, the browser uses the Windows file; WSL
+copies its entries into its own `/etc/hosts` when it next starts.
+
+Open `http://dev.profolio.internal`. It is HTTP only: `https://` reaches Traefik's
+self-signed certificate and the browser warns.
+
 ## 4. The workflows, and what each one depends on
 
 | Workflow | Runs on | Needs from this page |
@@ -253,7 +294,9 @@ How the workflows work inside is in [`.github/ci/README.md`](../.github/ci/READM
   them in Git in encrypted form, so that a rebuild needs one key and not this whole list.
 - **No backups.** The database holds synthetic data only, so nothing irreplaceable is lost
   with the cluster. That changes the day real data goes in.
-- **No ingress.** The app, Argo CD and Keycloak are reached with `kubectl port-forward`.
+- **Ingress is the app only, over HTTP, by a hosts-file entry.** There is no DNS and no
+  certificate, and each machine needs the entry (3.7). Argo CD and Keycloak are still
+  reached with `kubectl port-forward`.
 - **Argo CD uses its local admin account.** Single sign-on through Keycloak is planned.
 - **Tokens expire.** The `read:packages` token behind `ghcr-pull` has an expiry date, and
   image pulls fail on a new node once it passes. Nothing warns you.

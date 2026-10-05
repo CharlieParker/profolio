@@ -10,15 +10,13 @@ pulled in when a feature needs it.
 
 ## Next
 
-1. **Ingress.** Reach the app by name on the local network, so nothing needs
-   `kubectl port-forward`.
-2. **Allocation chart.** How the portfolio splits by holding and by account. The first
+1. **Allocation chart.** How the portfolio splits by holding and by account. The first
    feature with something to look at, built on the synthetic data already there.
-3. **A public demo on synthetic data.** The app reachable from the internet through an
+2. **A public demo on synthetic data.** The app reachable from the internet through an
    outbound tunnel. No login is needed while the data is synthetic. Once login exists, the
    same portfolio becomes a built-in demo user's data: visitors who aren't signed in see
    it, read-only, and anything that writes requires login.
-4. **The basic pipeline gates.** Dependabot; an image build and a vulnerability scan on
+3. **The basic pipeline gates.** Dependabot; an image build and a vulnerability scan on
    every pull request (nothing builds a Dockerfile on a pull request today); a secrets scan.
 
 ## Features
@@ -41,6 +39,8 @@ pulled in when a feature needs it.
   login in the app, then each user seeing only their own accounts. Platform users and app
   users kept in separate realms.
 - **HTTPS** on the app's hostnames.
+- **Argo CD and Keycloak by name,** as the app already is, in place of
+  `kubectl port-forward`.
 - **Secrets in Git, encrypted,** so a rebuild needs one key and not a list of commands. The
   tool is undecided.
 - **A rehearsal of [`bootstrap.md`](bootstrap.md)** against an empty cluster, including

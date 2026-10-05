@@ -12,7 +12,7 @@ Four **separate small charts**, not one umbrella chart — Argo CD's app-of-apps
 | --- | --- |
 | `postgres/` | headless Service + StatefulSet with a 1Gi PVC per pod |
 | `backend/` | backend Deployment + ClusterIP Service, plus `alembic upgrade head` as a `pre-install,pre-upgrade` hook Job |
-| `frontend/` | frontend Deployment + ClusterIP Service + `BACKEND_URL` ConfigMap |
+| `frontend/` | frontend Deployment + ClusterIP Service + `BACKEND_URL` ConfigMap, plus an optional Ingress |
 | `keycloak/` | Keycloak (codecentric's `keycloakx` chart), reusing the postgres chart's Postgres instance with its own logical database |
 
 ## Argo CD deploys these charts — Helm is for bootstrap and DR only
@@ -60,6 +60,18 @@ for dev: for backend and frontend that is the image tag and digest dev runs, whi
 pipeline's `bump` job sets (see [`../.github/ci/README.md`](../.github/ci/README.md)), so
 don't edit those two fields by hand in a feature PR. The `values-stage.yaml` files are still
 empty placeholders, and `profolio-stage` isn't in use.
+
+## Ingress
+
+The frontend chart can create an Ingress: one hostname routed to the `frontend` Service by
+the cluster's ingress controller. Only the frontend needs one, because its nginx already
+proxies `/api` to the backend. It is off in `values.yaml`. `values-dev.yaml` turns it on and
+sets the two values that differ between environments: `ingress.host`, and
+`ingress.className` (`traefik`, the controller k3s bundles). Rendering fails if it is
+enabled without a host.
+
+The hostname is in no DNS and there is no TLS yet. Making it resolve is a manual step on
+each machine: see [`../docs/bootstrap.md`](../docs/bootstrap.md#37-reach-the-app-by-name).
 
 ## Secrets
 
