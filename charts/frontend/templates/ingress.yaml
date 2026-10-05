@@ -1,0 +1,28 @@
+{{- /*
+Optional: one hostname routed to the frontend Service by the cluster's ingress controller.
+Only the frontend needs one, because its nginx already proxies /api to the backend.
+Off by default; an environment's values file turns it on and sets the host and the class.
+*/ -}}
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "frontend.fullname" . }}
+  labels:
+    {{- include "frontend.labels" . | nindent 4 }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    - host: {{ required "ingress.host is required when ingress.enabled is true" .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "frontend.fullname" . }}
+                port:
+                  name: http
+{{- end }}

@@ -171,6 +171,8 @@ The app runs on a single-node k3s cluster, in the `profolio-dev` namespace (with
 `keycloak` namespace). Argo CD deploys the Helm charts in `charts/` through the app-of-apps
 in `argocd/`, syncing automatically from `main` — so deploying a change means merging it.
 Images are private GHCR packages. Secrets are created imperatively and never committed.
+Dev is reached at `http://dev.profolio.internal` through an Ingress, on a machine whose
+hosts file points that name at the cluster.
 Details, including bootstrap and disaster-recovery steps: [`charts/README.md`](charts/README.md).
 
 Everything the system needs that isn't in this repo (tokens, Secrets, GitHub settings and

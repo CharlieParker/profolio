@@ -16,6 +16,14 @@ service:
   port: 80
   targetPort: 8080
 
+# Optional Ingress: reach the frontend by hostname through the cluster's ingress controller.
+# Off here; an environment's overlay turns it on. `host` is required when enabled.
+# `className` picks the controller; empty leaves it to the cluster's default.
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+
 # Substituted into nginx's config at container start via envsubst templating; no trailing
 # path, so /api/... is forwarded to the backend unchanged. Relies on the backend chart
 # being installed under release name "backend" in the same namespace (see ../README.md).
